@@ -5,6 +5,8 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
 
     <application
         android:allowBackup="true"
@@ -12,8 +14,9 @@
         android:label="@string/app_name"
         android:theme="@style/AppTheme" >
         <activity
-            android:name="com.example.floudcloud.app.LoginActivity"
-            android:label="@string/app_name" >
+            android:name="com.example.floudcloud.app.activity.LoginActivity"
+            android:label="@string/app_name"
+            android:screenOrientation="portrait" >
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 
@@ -21,9 +24,32 @@
             </intent-filter>
         </activity>
 
+        <activity
+            android:name="com.example.floudcloud.app.activity.SignupActivity"
+            android:label="@string/title_activity_signup"
+            android:screenOrientation="portrait" >
+        </activity>
+        <activity
+            android:name="com.example.floudcloud.app.activity.StatusActivity"
+            android:label="@string/title_activity_status"
+            android:screenOrientation="portrait" >
+        </activity>
+        <activity
+            android:name="com.example.floudcloud.app.activity.SettingsActivity"
+            android:label="@string/title_activity_settings"
+            android:screenOrientation="portrait">
+        </activity>
+
         <service
-            android:name="com.example.floudcloud.app.network.FloudSpiceService"
-            android:exported="false" />
+            android:name="com.example.floudcloud.app.service.MainService"
+            android:enabled="true"
+            android:exported="false" >
+        </service>
+        <service
+            android:name="com.example.floudcloud.app.service.CloudOperationsService"
+            android:enabled="true"
+            android:exported="false" >
+        </service>
     </application>
 
 </manifest>
