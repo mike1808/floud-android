@@ -1,5 +1,5 @@
 package com.example.floudcloud.app.utility;
 
-public interface ProgressNotify  {
+public interface ProgressListener {
     public void notifyProgress(int progress);
 }

@@ -15,19 +15,19 @@ import android.util.Log;
 
 import com.example.floudcloud.app.R;
 import com.example.floudcloud.app.model.FileUpload;
-import com.example.floudcloud.app.network.FloudFile;
 import com.example.floudcloud.app.network.FloudService;
+import com.example.floudcloud.app.operation.DownloadOperation;
+import com.example.floudcloud.app.operation.RemoteOperation;
+import com.example.floudcloud.app.operation.UploadOperation;
 import com.example.floudcloud.app.utility.FileUtils;
-import com.example.floudcloud.app.utility.ProgressNotify;
-import com.example.floudcloud.app.utility.SharedPrefs;
+import com.example.floudcloud.app.utility.ProgressListener;
 
 import java.io.File;
-import java.io.IOException;
-import java.net.MalformedURLException;
-import java.net.URL;
 import java.util.Stack;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.LinkedBlockingQueue;
 
-import retrofit.mime.TypedFile;
+import retrofit.http.Query;
 
 public class CloudOperationsService extends Service {
     public static final String EXTRA_OPERATION = "OPERATION";
@@ -46,34 +46,10 @@ public class CloudOperationsService extends Service {
     private NotificationManager mNotificationManager;
     private NotificationCompat.Builder mNotificationBuilder;
 
-    private class Operation {
-        private int mOperation;
-        private String mPath;
-        private FileUpload mFileUpload;
-
-        Operation(int operation, String path, FileUpload fileUpload) {
-            mOperation = operation;
-            mPath = path;
-            mFileUpload = fileUpload;
-        }
-
-        public int getOperation() {
-            return mOperation;
-        }
-
-        public String getPath() {
-            return mPath;
-        }
-
-        public FileUpload getFileUpload() {
-            return mFileUpload;
-        }
-    }
-
     private ServiceHandler mServiceHandler;
     private IBinder mBinder;
     private FloudService mFloudService;
-    private Stack<Operation> mOperations = new Stack<Operation>();
+    private ConcurrentLinkedQueue<RemoteOperation> mOperations = new ConcurrentLinkedQueue<RemoteOperation>();
 
     @Override
     public void onCreate() {
@@ -107,17 +83,20 @@ public class CloudOperationsService extends Service {
 
         int operation = intent.getIntExtra(EXTRA_OPERATION, OPERATION_NOP);
 
-        if (operation == OPERATION_NOP) {
-            return START_NOT_STICKY;
-        }
-
         String apiKey = intent.getStringExtra(EXTRA_API_KEY);
         String path = intent.getStringExtra(EXTRA_PATH);
         FileUpload fileUpload = intent.getParcelableExtra(EXTRA_FILE);
 
-        mFloudService = new FloudService(apiKey);
+        switch (operation) {
+            case OPERATION_DOWNLOAD:
+                mOperations.add(new DownloadOperation(path, apiKey, FileUtils.getFileBase()));
+                break;
+            case OPERATION_UPLOAD:
+                mOperations.add(new UploadOperation(fileUpload, apiKey, FileUtils.getFileBase()));
+                break;
+        }
 
-        mOperations.push(new Operation(operation, path, fileUpload));
+        mFloudService = new FloudService(apiKey);
 
         Message msg = mServiceHandler.obtainMessage();
         msg.arg1 = startId;
@@ -127,16 +106,14 @@ public class CloudOperationsService extends Service {
     }
 
     private void notifyDownload(String path) {
-        String title = String.format("%s %s", path, getResources().getString(R.string.download));
-        String text = String.format("%s %s", path, getResources().getString(R.string.dw_in_progress));
         String ticker = getResources().getString(R.string.dw_started);
 
 
         mNotificationBuilder = new NotificationCompat.Builder(this);
         mNotificationBuilder
                 .setSmallIcon(R.drawable.ic_notification)
-                .setContentTitle(title)
-                .setContentText(text)
+                .setContentTitle(getResources().getString(R.string.download))
+                .setContentText(getResources().getString(R.string.dw_in_progress))
                 .setTicker(ticker)
                 .setOngoing(true)
                 .setProgress(100, 0, false);
@@ -178,16 +155,14 @@ public class CloudOperationsService extends Service {
     }
 
     private void notifyUpload(String path) {
-        String title = String.format("%s %s", path, getResources().getString(R.string.upload));
-        String text = String.format("%s %s", path, getResources().getString(R.string.up_in_progress));
         String ticker = getResources().getString(R.string.up_started);
 
 
         mNotificationBuilder = new NotificationCompat.Builder(this);
         mNotificationBuilder
                 .setSmallIcon(R.drawable.ic_notification)
-                .setContentTitle(title)
-                .setContentText(text)
+                .setContentTitle(getResources().getString(R.string.upload))
+                .setContentText(getResources().getString(R.string.up_in_progress))
                 .setTicker(ticker)
                 .setOngoing(true)
                 .setProgress(100, 0, false);
@@ -244,37 +219,37 @@ public class CloudOperationsService extends Service {
     }
 
     private void nextOperation() {
-        Operation operation = null;
+        RemoteOperation operation = null;
 
         synchronized (mOperations) {
-            operation = mOperations.pop();
+            operation = mOperations.peek();
         }
 
         if (operation != null) {
-            switch (operation.getOperation()) {
-                case OPERATION_DOWNLOAD:
-                    performDownload(mFloudService.getApiKey(), operation.getPath());
-                    break;
-                case OPERATION_UPLOAD:
-                    performUpload(mFloudService.getApiKey(), operation.getFileUpload());
-                    break;
+            if (operation instanceof DownloadOperation) {
+                performDownload((DownloadOperation) operation);
+            } else if (operation instanceof UploadOperation) {
+                performUpload((UploadOperation) operation);
             }
+        }
+
+        synchronized (mOperations) {
+            mOperations.poll();
         }
     }
 
-    private boolean performDownload(String apiKey, String path) {
-        notifyDownload(path);
+    private boolean performDownload(DownloadOperation operation) {
+        notifyDownload(operation.getPath());
 
-        File saveDir = new File(FileUtils.getFileBase() + path).getParentFile();
 
-        String error = FileUtils.downloadFile(FloudService.FILE_BASE_URL + "?path=" + path, apiKey, saveDir, new ProgressNotify() {
+        int statusCode = operation.execute(new ProgressListener() {
             @Override
             public void notifyProgress(int progress) {
                 notifyDownloadProgress(progress);
             }
         });
 
-        if (error != null) {
+        if (statusCode != 200) {
             notifyDownloadResult(R.string.dw_error);
         } else {
             notifyDownloadResult(R.string.dw_finished);
@@ -285,10 +260,10 @@ public class CloudOperationsService extends Service {
     }
 
 
-    private boolean performUpload(String apiKey, FileUpload fileUpload) {
-        notifyUpload(fileUpload.path);
+    private boolean performUpload(UploadOperation operation) {
+        notifyUpload(operation.getPath());
 
-        int resultStatus = FileUtils.uploadFile(FloudService.FILE_BASE_URL + "?path=" + fileUpload.path, apiKey, fileUpload, FileUtils.getFileBase() + fileUpload.path, new ProgressNotify() {
+        int resultStatus = operation.execute(new ProgressListener() {
             @Override
             public void notifyProgress(int progress) {
                 notifyUploadProgress(progress);

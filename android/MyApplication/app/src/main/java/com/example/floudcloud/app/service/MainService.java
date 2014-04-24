@@ -112,7 +112,7 @@ public class MainService extends Service {
 
         for (File file : files) {
             try {
-                com.example.floudcloud.app.model.File fi  = new com.example.floudcloud.app.model.File(FileUtils.getFilePath(file), file.getTotalSpace(), FileUtils.getChecksum(file));
+                com.example.floudcloud.app.model.File fi  = new com.example.floudcloud.app.model.File(FileUtils.getFilePath(file), file.length(), FileUtils.getChecksum(file));
 
                 resultFiles.add(fi);
             } catch (Exception e) {

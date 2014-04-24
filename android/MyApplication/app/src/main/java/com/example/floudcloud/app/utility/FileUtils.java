@@ -76,61 +76,8 @@ public abstract class FileUtils {
         out.close();
     }
 
-    public static String downloadFile(String uri, String apiKey, File saveDir, ProgressNotify progressNotify) {
-        InputStream input = null;
-        OutputStream output = null;
-        HttpURLConnection connection = null;
-        try {
-            URL url = new URL(uri);
-            connection = (HttpURLConnection) url.openConnection();
-            connection.setRequestMethod("GET");
-            connection.setRequestProperty("Authorization", apiKey);
-            connection.connect();
 
-            if (connection.getResponseCode() != HttpURLConnection.HTTP_OK) {
-                return "Server returned HTTP " + connection.getResponseCode()
-                        + " " + connection.getResponseMessage();
-            }
-
-            // this will be useful to display download percentage
-            // might be -1: server did not report the length
-            int fileLength = connection.getContentLength();
-
-            // download the file
-            input = connection.getInputStream();
-            output = new FileOutputStream(saveDir);
-
-            byte data[] = new byte[BUFFER_SIZE];
-            long total = 0;
-            int count;
-            while ((count = input.read(data)) != -1) {
-                total += count;
-                // publishing the progress....
-                if (fileLength > 0) // only if total length is known
-                    progressNotify.notifyProgress((int) (total * 100 / fileLength));
-                output.write(data, 0, count);
-            }
-        } catch (MalformedURLException ex) {
-            Log.e(LOG_TAG, "error: " + ex.getMessage(), ex);
-        } catch (Exception e) {
-            return e.toString();
-        } finally {
-            try {
-                if (output != null)
-                    output.close();
-                if (input != null)
-                    input.close();
-            } catch (IOException ignored) {
-            }
-
-            if (connection != null)
-                connection.disconnect();
-        }
-
-        return null;
-    }
-
-    public static int uploadFile(String upLoadServerUri, String apiKey, FileUpload fileUpload, String sourceFileUri, ProgressNotify progressNotify) {
+    public static int uploadFile(String upLoadServerUri, String apiKey, FileUpload fileUpload, String sourceFileUri, ProgressListener progressListener) {
         String fileName = sourceFileUri;
         int serverResponseCode = 0;
         HttpURLConnection conn = null;
@@ -180,7 +127,7 @@ public abstract class FileUtils {
                 bytesRead = fileInputStream.read(buffer, 0, bufferSize);
                 long total = bytesRead;
                 while (bytesRead > 0) {
-                    progressNotify.notifyProgress((int) (total / fileUpload.size));
+                    progressListener.notifyProgress((int) (total / fileUpload.size));
                     dos.write(buffer, 0, bufferSize);
                     bytesAvailable = fileInputStream.available();
                     bufferSize = Math.min(bytesAvailable, maxBufferSize);
@@ -188,7 +135,6 @@ public abstract class FileUtils {
                 }
 
 
-                // File path
                 createFormData(lineEnd, twoHyphens, boundary, "path", fileUpload.path);
                 createFormData(lineEnd, twoHyphens, boundary, "hash", fileUpload.hash);
                 createFormData(lineEnd, twoHyphens, boundary, "size", Long.toString(fileUpload.size));
