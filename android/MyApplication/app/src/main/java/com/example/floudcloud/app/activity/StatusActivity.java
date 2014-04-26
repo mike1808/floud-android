@@ -7,9 +7,11 @@ import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.Button;
+import android.widget.Toast;
 
 import com.example.floudcloud.app.R;
 import com.example.floudcloud.app.service.CloudOperationsService;
+import com.example.floudcloud.app.service.FileObserverService;
 import com.example.floudcloud.app.service.MainService;
 import com.example.floudcloud.app.utility.Constants;
 import com.example.floudcloud.app.utility.FileUtils;
@@ -32,7 +34,28 @@ public class StatusActivity extends BaseActivity {
     private View.OnClickListener onServiceToggleButtonClickListener = new View.OnClickListener() {
         @Override
         public void onClick(View v) {
-            startMonitoring(SharedPrefs.getItem("", Constants.PREF_API_KEY), SharedPrefs.getItem("", Constants.PREF_PATH));
+            String path = SharedPrefs.getItem("", Constants.PREF_PATH);
+
+            if (path.isEmpty()) {
+                Toast.makeText(StatusActivity.this, "Specify path of the directory in settings", Toast.LENGTH_LONG).show();
+            } else {
+                startMonitoring(SharedPrefs.getItem("", Constants.PREF_API_KEY), path);
+            }
+
+        }
+    };
+
+    private View.OnClickListener onObsServiceToggleButtonClickListener = new View.OnClickListener() {
+        @Override
+        public void onClick(View v) {
+            String path = SharedPrefs.getItem("", Constants.PREF_PATH);
+
+            if (path.isEmpty()) {
+                Toast.makeText(StatusActivity.this, "Specify path of the directory in settings", Toast.LENGTH_LONG).show();
+            } else {
+                startObs(SharedPrefs.getItem("", Constants.PREF_API_KEY), path);
+            }
+
         }
     };
 
@@ -43,8 +66,11 @@ public class StatusActivity extends BaseActivity {
 
         Button settingsButton = (Button) findViewById(R.id.settingsButton);
         Button serviceToggleButton = (Button) findViewById(R.id.serviceToggleButton);
+        Button obsServiceToggleButton = (Button) findViewById(R.id.obsServiceToggleButton);
+
         settingsButton.setOnClickListener(onSettingsButtonClickListener);
         serviceToggleButton.setOnClickListener(onServiceToggleButtonClickListener);
+        obsServiceToggleButton.setOnClickListener(onObsServiceToggleButtonClickListener);
 
         String path = SharedPrefs.getItem(null, SharedPrefs.PREF_PATH);
         FileUtils.setFilePathBase(Environment.getExternalStorageDirectory().getAbsolutePath() + path);
@@ -85,6 +111,17 @@ public class StatusActivity extends BaseActivity {
                 }
         }
     }
+
+
+    private void startObs(String apiKey, String path) {
+        Intent intent = new Intent(this, MainService.class);
+        intent.putExtra(MainService.EXTRA_PATH, path);
+        intent.putExtra(MainService.EXTRA_API_KEY, apiKey);
+        // FIXME :(
+        intent.putExtra(MainService.EXTRA_MEGA_KASTIL, 1);
+        startService(intent);
+    }
+
 
     private void startMonitoring(String apiKey, String path) {
         Intent intent = new Intent(this, MainService.class);

@@ -17,8 +17,12 @@ import retrofit.converter.GsonConverter;
 
 
 public class FloudService {
-    public final static String AUTH_BASE_URL = "http://floud.herokuapp.com/api/v1.0/users";
-    public final static String FILE_BASE_URL = "http://floud.herokuapp.com/api/v1.0/files";
+    private final static String API_URL = "http://floud-cloud.no-ip.org/api/v1.0";
+    private final static String AUTH_URI = "/users";
+    private final static String FILE_URI = "/files";
+
+    public final static String AUTH_URL = API_URL + AUTH_URI;
+    public final static String FILE_URL = API_URL + FILE_URI;
 
     private FloudAuth floudAuthService;
     private FloudFile floudFileService;
@@ -28,7 +32,7 @@ public class FloudService {
 
     public FloudService() {
         RestAdapter authRestAdapter  = new RestAdapter.Builder()
-                .setEndpoint(AUTH_BASE_URL)
+                .setEndpoint(AUTH_URL)
                 .setConverter(new GsonConverter(new Gson()))
                 .setErrorHandler(new MyErrorHandler())
                 .build();
@@ -47,7 +51,7 @@ public class FloudService {
         };
 
         RestAdapter fileRestAdapter  = new RestAdapter.Builder()
-                .setEndpoint(FILE_BASE_URL)
+                .setEndpoint(FILE_URL)
                 .setConverter(new GsonConverter(new Gson()))
                 .setErrorHandler(new MyErrorHandler())
                 .setRequestInterceptor(authInterceptor)

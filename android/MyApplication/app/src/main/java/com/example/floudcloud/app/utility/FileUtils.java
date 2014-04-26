@@ -16,6 +16,7 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.security.DigestInputStream;
 import java.security.MessageDigest;
+import java.util.ArrayList;
 
 public abstract class FileUtils {
     private static final String LOG_TAG = FileUtils.class.getSimpleName();
@@ -35,22 +36,20 @@ public abstract class FileUtils {
         }
     }
 
-    public static String getFilePath(File file) throws Exception {
-        if (mFileBase == null) {
-            throw new Exception("Base of file path isn't set");
+    public static String getFilePath(File file, String path) {
+        if (path != null) {
+            return path.replace(mFileBase, "");
         }
 
         return file.getAbsoluteFile().toString().replace(mFileBase, "");
     }
 
-    public static String getChecksum(File file) throws Throwable {
-        byte[] digest = getDigest(new FileInputStream(file));
-        StringBuilder sb = new StringBuilder();
-        for (byte aDigest : digest) {
-            sb.append(String.format("%x", aDigest));
-        }
+    public static long getFileSize(String path) {
+        return new File(path).length();
+    }
 
-        return sb.toString();
+    public static String getChecksum(File file) throws Throwable {
+        return bytesToHex(getDigest(new FileInputStream(file)));
     }
 
     public static void saveFile(String relativePath, InputStream in) throws IOException {
@@ -76,97 +75,80 @@ public abstract class FileUtils {
         out.close();
     }
 
+    public static ArrayList<File> getDirectoryContent(File dir) {
+        if (!dir.isDirectory())
+            return null;
 
-    public static int uploadFile(String upLoadServerUri, String apiKey, FileUpload fileUpload, String sourceFileUri, ProgressListener progressListener) {
-        String fileName = sourceFileUri;
-        int serverResponseCode = 0;
-        HttpURLConnection conn = null;
-        DataOutputStream dos = null;
-        String lineEnd = "\r\n";
-        String twoHyphens = "--";
-        String boundary = "-BOUNDARY---BOUNDARY---BOUNDARY---";
-        int bytesRead, bytesAvailable, bufferSize;
-        byte[] buffer;
-        int maxBufferSize = 1 * 1024 * 1024;
-        File sourceFile = new File(sourceFileUri);
+        ArrayList<File> files = new ArrayList<File>();
 
-        if (!sourceFile.isFile()) {
-            Log.e(LOG_TAG, "Source File not exist :" + sourceFileUri);
-            return 0;
-        } else {
-            try {
-                // open a URL connection to the Servlet
-                FileInputStream fileInputStream = new FileInputStream(sourceFile);
-                URL url = new URL(upLoadServerUri);
+        File[] dirContent = dir.listFiles();
 
-                // Open a HTTP  connection to  the URL
-                conn = (HttpURLConnection) url.openConnection();
-                conn.setDoInput(true); // Allow Inputs
-                conn.setDoOutput(true); // Allow Outputs
-                conn.setUseCaches(false); // Don't use a Cached Copy
-                conn.setRequestMethod("POST");
-                conn.setRequestProperty("Authorization", apiKey);
-                conn.setRequestProperty("Connection", "Keep-Alive");
-                conn.setRequestProperty("ENCTYPE", "multipart/form-data");
-                conn.setRequestProperty("Content-Type", "multipart/form-data;boundary=" + boundary);
-
-                dos = new DataOutputStream(conn.getOutputStream());
-
-                dos.writeBytes(twoHyphens + boundary + lineEnd);
-                dos.writeBytes("Content-Disposition: form-data; name=\"file\";filename=\"" + fileName + "\"" + lineEnd);
-                dos.writeBytes(lineEnd);
-
-                // create a buffer of  maximum size
-                bytesAvailable = fileInputStream.available();
-
-                bufferSize = Math.min(bytesAvailable, maxBufferSize);
-                buffer = new byte[bufferSize];
-
-
-                // read file and write it into form...
-                bytesRead = fileInputStream.read(buffer, 0, bufferSize);
-                long total = bytesRead;
-                while (bytesRead > 0) {
-                    progressListener.notifyProgress((int) (total / fileUpload.size));
-                    dos.write(buffer, 0, bufferSize);
-                    bytesAvailable = fileInputStream.available();
-                    bufferSize = Math.min(bytesAvailable, maxBufferSize);
-                    bytesRead = fileInputStream.read(buffer, 0, bufferSize);
-                }
-
-
-                createFormData(lineEnd, twoHyphens, boundary, "path", fileUpload.path);
-                createFormData(lineEnd, twoHyphens, boundary, "hash", fileUpload.hash);
-                createFormData(lineEnd, twoHyphens, boundary, "size", Long.toString(fileUpload.size));
-
-                // send multipart form data necesssary after file data...
-                dos.writeBytes(lineEnd);
-                dos.writeBytes(twoHyphens + boundary + twoHyphens + lineEnd);
-
-                // Responses from the server (code and message)
-                serverResponseCode = conn.getResponseCode();
-                String serverResponseMessage = conn.getResponseMessage();
-
-                Log.i(LOG_TAG, "HTTP Response is : " + serverResponseMessage + ": " + serverResponseCode);
-
-                fileInputStream.close();
-                dos.flush();
-                dos.close();
-            } catch (MalformedURLException ex) {
-                Log.e(LOG_TAG, "error: " + ex.getMessage(), ex);
-            } catch (Exception e) {
-                Log.e(LOG_TAG, "Exception : " + e.getMessage(), e);
-            }
-
-            return serverResponseCode;
+        if (dirContent == null) {
+            return null;
         }
+
+        for(File file : dirContent) {
+            if (file.isDirectory()) {
+                files.addAll(getDirectoryContent(file));
+            } else {
+                files.add(file);
+            }
+        }
+
+        return files;
     }
 
-    private static String createFormData(String lineEnd, String twoHyphens, String boundary, String key, String value) {
-        return twoHyphens + boundary + twoHyphens + lineEnd +
-               "Content-Disposition: form-data; name=\"" + key + "\"" + lineEnd +
-               lineEnd +
-               value + lineEnd;
+    public static ArrayList<com.example.floudcloud.app.model.File> generateFilesList(ArrayList<File> files) {
+        if (files == null) {
+            Log.e(LOG_TAG, "Files list is null");
+            return null;
+        }
+
+        ArrayList<com.example.floudcloud.app.model.File> resultFiles = new ArrayList<com.example.floudcloud.app.model.File>();
+
+        for (File file : files) {
+            try {
+                com.example.floudcloud.app.model.File fi  = new com.example.floudcloud.app.model.File(FileUtils.getFilePath(file, null), file.length(), FileUtils.getChecksum(file));
+
+                resultFiles.add(fi);
+            } catch (Exception e) {
+                Log.e(LOG_TAG, e.getMessage());
+            } catch (Throwable throwable) {
+                Log.e(LOG_TAG, "Could not compute file checksum");
+            }
+        }
+
+        return resultFiles;
+    }
+
+    public static String resolvePath(String relativePath) {
+        String path;
+        if (relativePath.startsWith("/")) {
+            path = mFileBase + relativePath;
+        } else {
+            path = mFileBase + "/" + relativePath;
+        }
+
+        return path;
+    }
+
+    public static boolean mkDir(String path, File destDir) {
+        File dir = null;
+        if (path == null && destDir != null) {
+            dir = destDir;
+        } else {
+            dir = new File(path);
+        }
+
+        if (dir.exists() && !dir.isDirectory()) {
+            return false;
+        }
+
+        if (dir.exists() && dir.isDirectory()) {
+            return true;
+        }
+
+        return dir.mkdir();
     }
 
     private static byte[] getDigest(InputStream in) throws Throwable {
@@ -184,15 +166,17 @@ public abstract class FileUtils {
         return md.digest();
     }
 
-
-    private static String resolvePath(String relativePath) {
-        String path;
-        if (relativePath.startsWith("/")) {
-            path = mFileBase + relativePath;
-        } else {
-            path = mFileBase + "/" + relativePath;
+    private static String bytesToHex(byte[] b) {
+        char hexDigit[] = {'0', '1', '2', '3', '4', '5', '6', '7',
+                '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'};
+        StringBuffer buf = new StringBuffer();
+        for (int j=0; j<b.length; j++) {
+            buf.append(hexDigit[(b[j] >> 4) & 0x0f]);
+            buf.append(hexDigit[b[j] & 0x0f]);
         }
-
-        return path;
+        return buf.toString();
     }
+
+
+
 }

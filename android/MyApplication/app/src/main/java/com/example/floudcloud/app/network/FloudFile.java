@@ -1,21 +1,22 @@
 package com.example.floudcloud.app.network;
 
 import com.example.floudcloud.app.model.File;
+import com.example.floudcloud.app.model.FileMove;
+import com.example.floudcloud.app.model.SimpleReturn;
 
-import java.util.Date;
-
+import retrofit.http.Body;
 import retrofit.http.DELETE;
 import retrofit.http.Field;
 import retrofit.http.GET;
-import retrofit.http.Header;
 import retrofit.http.Multipart;
 import retrofit.http.POST;
+import retrofit.http.PUT;
 import retrofit.http.Part;
 import retrofit.http.Query;
 import retrofit.mime.TypedFile;
 
 public interface FloudFile {
-    @GET("/list")
+    @GET("/")
     File.List getFilesList(@Query("from") long from);
 
     @Multipart
@@ -26,6 +27,9 @@ public interface FloudFile {
     @GET("/file")
     TypedFile getFile(@Query("path") String path);
 
-    @DELETE("/")
-    void deleteFile(@Query("path") String path);
+    @DELETE("/file")
+    SimpleReturn deleteFile(@Query("path") String path);
+
+    @PUT("/move")
+    SimpleReturn moveFile(@Body() FileMove fm);
 }

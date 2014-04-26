@@ -15,12 +15,10 @@ import org.apache.http.entity.mime.MultipartEntityBuilder;
 import org.apache.http.entity.mime.content.FileBody;
 import org.apache.http.impl.client.DefaultHttpClient;
 
-import java.io.BufferedReader;
 import java.io.File;
 import java.io.FilterOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.io.OutputStream;
 
 public class UploadOperation extends RemoteOperation {
@@ -30,7 +28,7 @@ public class UploadOperation extends RemoteOperation {
     private long uploaded;
 
     public UploadOperation(FileUpload fileUpload, String apiKey, String storagePath) {
-        super(apiKey, FloudService.FILE_BASE_URL, fileUpload.path);
+        super(apiKey, FloudService.FILE_URL, fileUpload.path);
         this.uploaded = 0;
         this.fileUpload = fileUpload;
         this.file = new File(storagePath + fileUpload.path);

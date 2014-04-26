@@ -23,5 +23,8 @@
     <string name="up_finished">Upload has finished</string>
     <string name="dw_error">Download failed</string>
     <string name="up_error">Upload failed</string>
+    <string name="move_failed">Move failed</string>
+    <string name="delete_failed">Delete failed</string>
+    <string name="startObs">Start Observer</string>
 
 </resources>

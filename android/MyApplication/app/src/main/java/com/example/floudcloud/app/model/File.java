@@ -9,8 +9,7 @@ public class File {
     private long size;
     private int version;
     private String hash;
-    private Date created;
-    private String name;
+    private String created;
 
     public File(String path, long size, String hash) {
         this.path = path;
@@ -45,12 +44,8 @@ public class File {
         return version;
     }
 
-    public Date getCreated() {
+    public String getCreated() {
         return created;
-    }
-
-    public String getName() {
-        return name;
     }
 
     @SuppressWarnings("serial")

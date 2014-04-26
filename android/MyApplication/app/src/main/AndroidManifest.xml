@@ -23,7 +23,6 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-
         <activity
             android:name="com.example.floudcloud.app.activity.SignupActivity"
             android:label="@string/title_activity_signup"
@@ -37,7 +36,7 @@
         <activity
             android:name="com.example.floudcloud.app.activity.SettingsActivity"
             android:label="@string/title_activity_settings"
-            android:screenOrientation="portrait">
+            android:screenOrientation="portrait" >
         </activity>
 
         <service
@@ -47,6 +46,11 @@
         </service>
         <service
             android:name="com.example.floudcloud.app.service.CloudOperationsService"
+            android:enabled="true"
+            android:exported="false" >
+        </service>
+        <service
+            android:name="com.example.floudcloud.app.service.FileObserverService"
             android:enabled="true"
             android:exported="false" >
         </service>

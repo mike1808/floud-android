@@ -35,12 +35,11 @@ public class MainService extends Service {
 
     public static String EXTRA_PATH = "PATH";
     public static String EXTRA_API_KEY = "API_KEY";
+    public static final String EXTRA_MEGA_KASTIL = "bilo 3 chasa nochi i nuzhno bilo pisat diplom";
 
     private ServiceHandler mServiceHandler;
     private IBinder mBinder;
     private String mApiKey;
-    private NotificationManager mNotificationManager;
-    private NotificationCompat.Builder mNotificationBuilder;
     private FloudService floudService;
 
     public MainService() {
@@ -55,7 +54,6 @@ public class MainService extends Service {
     @Override
     public void onCreate() {
         super.onCreate();
-        mNotificationManager = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
         HandlerThread thread =  new HandlerThread("Main thread", Process.THREAD_PRIORITY_BACKGROUND);
         thread.start();
         Looper mServiceLooper = thread.getLooper();
@@ -78,6 +76,8 @@ public class MainService extends Service {
         Message msg = mServiceHandler.obtainMessage();
         msg.arg1 = startId;
         msg.obj = path;
+        // FIXME :(
+        msg.arg2 = intent.getIntExtra(EXTRA_MEGA_KASTIL, 0);
         mServiceHandler.sendMessage(msg);
 
         return START_NOT_STICKY;
@@ -102,34 +102,12 @@ public class MainService extends Service {
         return resultFiles;
     }
 
-    private ArrayList<com.example.floudcloud.app.model.File> generateFilesList(ArrayList<File> files) {
-        if (files == null) {
-            Log.e(LOG_TAG, "Files list is null");
-            return null;
-        }
 
-        ArrayList<com.example.floudcloud.app.model.File> resultFiles = new ArrayList<com.example.floudcloud.app.model.File>();
-
-        for (File file : files) {
-            try {
-                com.example.floudcloud.app.model.File fi  = new com.example.floudcloud.app.model.File(FileUtils.getFilePath(file), file.length(), FileUtils.getChecksum(file));
-
-                resultFiles.add(fi);
-            } catch (Exception e) {
-                Log.e(LOG_TAG, e.getMessage());
-            } catch (Throwable throwable) {
-                Log.e(LOG_TAG, "Could not compute file checksum");
-            }
-        }
-
-        return resultFiles;
-    }
-
-    private com.example.floudcloud.app.model.File.List fetchFiles() {
+    private com.example.floudcloud.app.model.File.List fetchFiles(boolean withTimestamp) {
         com.example.floudcloud.app.model.File.List cloudFiles = null;
 
         try {
-            cloudFiles = floudService.getFileService().getFilesList(floudService.getTimestamp());
+            cloudFiles = floudService.getFileService().getFilesList(withTimestamp ? floudService.getTimestamp() : 0);
         } catch (UnauthorizedError cause) {
             Log.e(LOG_TAG, "Not Authorized");
             return null;
@@ -229,15 +207,24 @@ public class MainService extends Service {
 
         @Override
         public void handleMessage(Message msg) {
+
             String path = (String) msg.obj;
 
+            if (msg.arg2 == 1) {
+                Intent fileObserverIntent = new Intent(mService, FileObserverService.class);
+                fileObserverIntent.putExtra(FileObserverService.EXTRA_API_KEY, mService.mApiKey);
+                fileObserverIntent.putExtra(FileObserverService.EXTRA_PATH, path);
+                mService.startService(fileObserverIntent);
+                return;
+            }
+
             if (path != null) {
-                ArrayList<File> pathContent = mService.getLocaleFiles(path);
-                ArrayList<com.example.floudcloud.app.model.File> localeFiles = mService.generateFilesList(pathContent);
-                com.example.floudcloud.app.model.File.List cloudFiles = mService.fetchFiles();
+                ArrayList<File> pathContent = FileUtils.getDirectoryContent(new File(path));
+                ArrayList<com.example.floudcloud.app.model.File> localeFiles = FileUtils.generateFilesList(pathContent);
+                com.example.floudcloud.app.model.File.List cloudFiles = mService.fetchFiles(false);
 
                 ArrayList<String> filesToBeDownloaded = mService.getFilesToBeDownloaded(cloudFiles, localeFiles);
-                ArrayList<FileUpload> filesToBeUploaded = mService.getFilesToBeUploaded(cloudFiles, localeFiles);
+                ArrayList<FileUpload> filesToBeUploaded = mService.getFilesToBeUploaded(mService.fetchFiles(false), localeFiles);
 
                 if (filesToBeDownloaded != null) {
                     mService.downloadFiles(filesToBeDownloaded);
@@ -246,6 +233,8 @@ public class MainService extends Service {
                 if (filesToBeUploaded != null) {
                     mService.uploadFiles(filesToBeUploaded);
                 }
+
+
             }
 
             mService.stopSelf(msg.arg1);
