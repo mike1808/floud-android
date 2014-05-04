@@ -2,7 +2,11 @@ package com.example.floudcloud.app.service;
 
 import android.app.NotificationManager;
 import android.app.Service;
+import android.content.ComponentName;
+import android.content.Context;
 import android.content.Intent;
+import android.content.ServiceConnection;
+import android.os.Binder;
 import android.os.Environment;
 import android.os.Handler;
 import android.os.HandlerThread;
@@ -38,17 +42,43 @@ public class MainService extends Service {
     public static final String EXTRA_MEGA_KASTIL = "bilo 3 chasa nochi i nuzhno bilo pisat diplom";
 
     private ServiceHandler mServiceHandler;
-    private IBinder mBinder;
+    private IBinder mBinder = new LocalBinder();
     private String mApiKey;
     private FloudService floudService;
+
+
+    private FileObserverService mFileObserverService;
+    private boolean mFileObserverServiceBound = false;
+
+    private ServiceConnection mFileObserverConnection = new ServiceConnection() {
+        @Override
+        public void onServiceConnected(ComponentName name, IBinder service) {
+            FileObserverService.LocalBinder binder = (FileObserverService.LocalBinder) service;
+            mFileObserverService = binder.getService();
+            mFileObserverServiceBound = true;
+        }
+
+        @Override
+        public void onServiceDisconnected(ComponentName name) {
+            mFileObserverServiceBound = false;
+        }
+    };
+
+
+    public class LocalBinder extends Binder {
+        MainService getService() {
+            return MainService.this;
+        }
+    }
 
     public MainService() {
         super();
     }
 
+
     @Override
     public IBinder onBind(Intent intent) {
-        return null;
+        return mBinder;
     }
 
     @Override
@@ -58,7 +88,6 @@ public class MainService extends Service {
         thread.start();
         Looper mServiceLooper = thread.getLooper();
         mServiceHandler = new ServiceHandler(mServiceLooper, this);
-
     }
 
     @Override
@@ -80,7 +109,18 @@ public class MainService extends Service {
         msg.arg2 = intent.getIntExtra(EXTRA_MEGA_KASTIL, 0);
         mServiceHandler.sendMessage(msg);
 
+        /*Intent fileObserverIntent = new Intent(this, FileObserverService.class);
+        fileObserverIntent.putExtra(FileObserverService.EXTRA_API_KEY, mApiKey);
+        fileObserverIntent.putExtra(FileObserverService.EXTRA_PATH, path);
+        startService(fileObserverIntent);
+
+        bindService(fileObserverIntent, mFileObserverConnection, Context.BIND_AUTO_CREATE);*/
+
         return START_NOT_STICKY;
+    }
+
+    public boolean getStatus() {
+        return mFileObserverService.getWatcherStatus();
     }
 
     private ArrayList<File> getLocaleFiles(String path) {
@@ -207,21 +247,19 @@ public class MainService extends Service {
 
         @Override
         public void handleMessage(Message msg) {
-
             String path = (String) msg.obj;
 
-            if (msg.arg2 == 1) {
-                Intent fileObserverIntent = new Intent(mService, FileObserverService.class);
-                fileObserverIntent.putExtra(FileObserverService.EXTRA_API_KEY, mService.mApiKey);
-                fileObserverIntent.putExtra(FileObserverService.EXTRA_PATH, path);
-                mService.startService(fileObserverIntent);
-                return;
-            }
-
             if (path != null) {
+                if(msg.arg2 == 1) {
+                    Intent fileObserverIntent = new Intent(mService, FileObserverService.class);
+                    fileObserverIntent.putExtra(FileObserverService.EXTRA_API_KEY, mService.mApiKey);
+                    fileObserverIntent.putExtra(FileObserverService.EXTRA_PATH, path);
+                    mService.startService(fileObserverIntent);
+                }
+
                 ArrayList<File> pathContent = FileUtils.getDirectoryContent(new File(path));
                 ArrayList<com.example.floudcloud.app.model.File> localeFiles = FileUtils.generateFilesList(pathContent);
-                com.example.floudcloud.app.model.File.List cloudFiles = mService.fetchFiles(false);
+                com.example.floudcloud.app.model.File.List cloudFiles = mService.fetchFiles(true);
 
                 ArrayList<String> filesToBeDownloaded = mService.getFilesToBeDownloaded(cloudFiles, localeFiles);
                 ArrayList<FileUpload> filesToBeUploaded = mService.getFilesToBeUploaded(mService.fetchFiles(false), localeFiles);
@@ -234,7 +272,7 @@ public class MainService extends Service {
                     mService.uploadFiles(filesToBeUploaded);
                 }
 
-
+                //mService.mFileObserverService.startWatcher();
             }
 
             mService.stopSelf(msg.arg1);

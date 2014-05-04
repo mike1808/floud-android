@@ -1,6 +1,8 @@
 package com.example.floudcloud.app.operation;
 
 
+import android.util.Log;
+
 import com.example.floudcloud.app.network.FloudService;
 import com.example.floudcloud.app.utility.FileUtils;
 import com.example.floudcloud.app.utility.ProgressListener;
@@ -15,6 +17,7 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 
 public class DownloadOperation extends RemoteOperation {
+    private final String LOG_TAG = DownloadOperation.class.getSimpleName();
     private static final int BUFFER_SIZE = 16 * 1024 * 1024; // 16 KiB
     private File saveFile;
 
@@ -61,6 +64,9 @@ public class DownloadOperation extends RemoteOperation {
             }
 
         } catch (Exception e) {
+            Log.e(LOG_TAG, "An exception occurred when downloading " + saveFile.getAbsolutePath());
+            Log.e(LOG_TAG, "Exception " + e.getMessage());
+            Log.e(LOG_TAG, "Stack trace " + e.getStackTrace());
             return 0;
         } finally {
             try {

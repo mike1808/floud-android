@@ -27,7 +27,7 @@ import android.os.FileObserver;
 
 public class RecursiveFileObserver extends FileObserver {
 
-    public static int CHANGES_ONLY = CLOSE_WRITE | MOVE_SELF | MOVED_FROM | MOVED_TO | DELETE | CREATE;
+    public static int CHANGES_ONLY = CLOSE_WRITE | MOVE_SELF | MOVED_FROM | MOVED_TO | DELETE ;
 
     List<SingleFileObserver> mObservers;
     String mPath;

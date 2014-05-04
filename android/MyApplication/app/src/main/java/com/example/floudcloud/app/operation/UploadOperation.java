@@ -1,6 +1,8 @@
 package com.example.floudcloud.app.operation;
 
 
+import android.util.Log;
+
 import com.example.floudcloud.app.model.FileUpload;
 import com.example.floudcloud.app.network.FloudService;
 import com.example.floudcloud.app.utility.ProgressListener;
@@ -22,6 +24,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 
 public class UploadOperation extends RemoteOperation {
+    private final String LOG_TAG = UploadOperation.class.getSimpleName();
     private FileUpload fileUpload;
     private File file;
     private ProgressListener progressListener;
@@ -145,6 +148,9 @@ public class UploadOperation extends RemoteOperation {
         try {
             statusCode = postFile();
         } catch (Exception e) {
+            Log.e(LOG_TAG, "An exception occurred when downloading " + file.getAbsolutePath());
+            Log.e(LOG_TAG, "Exception " + e.getMessage());
+            Log.e(LOG_TAG, "Stack trace " + e.getStackTrace());
             return 0;
         }
 

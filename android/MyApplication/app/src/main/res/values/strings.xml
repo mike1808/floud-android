@@ -17,8 +17,8 @@
     <string name="upload">Upload</string>
     <string name="dw_in_progress">Download in progress</string>
     <string name="up_in_progress">Upload in progress</string>
-    <string name="dw_started">Download has started</string>
-    <string name="up_started">Upload has started</string>
+    <string name="dw_started">↓</string>
+    <string name="up_started">↑</string>
     <string name="dw_finished">Download has finished</string>
     <string name="up_finished">Upload has finished</string>
     <string name="dw_error">Download failed</string>

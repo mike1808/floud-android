@@ -24,6 +24,7 @@ import com.example.floudcloud.app.operation.UploadOperation;
 import com.example.floudcloud.app.utility.FileUtils;
 import com.example.floudcloud.app.utility.ProgressListener;
 
+import java.io.File;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
 public class CloudOperationsService extends Service {
@@ -111,116 +112,112 @@ public class CloudOperationsService extends Service {
     }
 
     private void notifyDownload(String path) {
-        String ticker = getResources().getString(R.string.dw_started);
-
+        String ticker = getResources().getString(R.string.dw_started) + " " + path;
 
         mNotificationBuilder = new NotificationCompat.Builder(this);
         mNotificationBuilder
                 .setSmallIcon(R.drawable.ic_notification)
-                .setContentTitle(getResources().getString(R.string.download))
+                .setContentTitle(path)
                 .setContentText(getResources().getString(R.string.dw_in_progress))
                 .setTicker(ticker)
                 .setOngoing(true)
                 .setProgress(100, 0, false);
 
-        Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
-        Uri uri = Uri.parse(FileUtils.getFileBase());
-        intent.setDataAndType(uri, "*/*");
-
         mNotificationBuilder.setContentIntent(
                 PendingIntent.getActivity(
                         this,
                         (int) System.currentTimeMillis(),
-                        Intent.createChooser(intent, "Open a folder"),
+                        createNotificationIntent(path),
                         0
                 )
         );
 
-        mNotificationManager.notify(R.string.download, mNotificationBuilder.build());
+        mNotificationManager.notify(path.hashCode(), mNotificationBuilder.build());
     }
 
-    private void notifyDownloadProgress(int progress) {
+    private void notifyDownloadProgress(String path, int progress) {
         mNotificationBuilder
                 .setProgress(100, progress, false);
 
-        mNotificationManager.notify(R.string.download, mNotificationBuilder.build());
+        mNotificationManager.notify(path.hashCode(), mNotificationBuilder.build());
     }
 
-    private void notifyDownloadResult(int result) {
+    private void notifyDownloadResult(String path, int result) {
         mNotificationManager.cancel(R.string.download);
         mNotificationBuilder
                 .setProgress(0, 0, false)
-                .setContentTitle(getResources().getString(result))
-                .setContentText("")
+                .setContentTitle(path)
+                .setContentText(getResources().getString(result))
+                .setTicker(getResources().getString(R.string.dw_finished))
                 .setAutoCancel(true)
                 .setOngoing(false);
 
-        mNotificationManager.notify(R.string.download, mNotificationBuilder.build());
+        mNotificationManager.notify(path.hashCode(), mNotificationBuilder.build());
     }
 
     private void notifyUpload(String path) {
-        String ticker = getResources().getString(R.string.up_started);
+        String ticker = getResources().getString(R.string.up_started) + " " + path;
 
         mNotificationBuilder = new NotificationCompat.Builder(this);
         mNotificationBuilder
                 .setSmallIcon(R.drawable.ic_notification)
-                .setContentTitle(getResources().getString(R.string.upload))
+                .setContentTitle(path)
                 .setContentText(getResources().getString(R.string.up_in_progress))
                 .setTicker(ticker)
                 .setOngoing(true)
                 .setProgress(100, 0, false);
 
-        Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
-        Uri uri = Uri.parse(FileUtils.getFileBase());
-        intent.setDataAndType(uri, "*/*");
-
         mNotificationBuilder.setContentIntent(
                 PendingIntent.getActivity(
                         this,
                         (int) System.currentTimeMillis(),
-                        Intent.createChooser(intent, "Open a folder"),
+                        createNotificationIntent(path),
                         0
                 )
         );
 
-        mNotificationManager.notify(R.string.upload, mNotificationBuilder.build());
+        mNotificationManager.notify(path.hashCode(), mNotificationBuilder.build());
     }
 
-    private void notifyUploadProgress(int progress) {
+    private void notifyUploadProgress(String path, int progress) {
         mNotificationBuilder
                 .setProgress(100, progress, false);
 
-        mNotificationManager.notify(R.string.upload, mNotificationBuilder.build());
+        mNotificationManager.notify(path.hashCode(), mNotificationBuilder.build());
     }
 
-    private void notifyUploadResult(int result) {
+    private void notifyUploadResult(String path, int result) {
         mNotificationManager.cancel(R.string.upload);
         mNotificationBuilder
                 .setProgress(0, 0, false)
-                .setContentTitle(getResources().getString(result))
-                .setContentText("")
+                .setContentTitle(path)
+                .setContentText(getResources().getString(result))
+                .setTicker(getResources().getString(R.string.up_finished))
                 .setAutoCancel(true)
                 .setOngoing(false);
 
-        mNotificationManager.notify(R.string.upload, mNotificationBuilder.build());
+        mNotificationManager.notify(path.hashCode(), mNotificationBuilder.build());
     }
 
-    private void notifyMoveFailed(int result) {
+    private void notifyMoveFailed(String path, int result) {
         mNotificationBuilder = new NotificationCompat.Builder(this);
         mNotificationBuilder
                 .setSmallIcon(R.drawable.ic_notification)
-                .setContentTitle(getResources().getString(R.string.move_failed));
+                .setTicker(getResources().getString(R.string.move_failed))
+                .setContentTitle(path)
+                .setContentText(getResources().getString(R.string.move_failed));
 
-        mNotificationManager.notify(R.string.move_failed, mNotificationBuilder.build());
+        mNotificationManager.notify(path.hashCode(), mNotificationBuilder.build());
     }
 
-    private void notifyDeleteFailed(int result) {
+    private void notifyDeleteFailed(String path, int result) {
         mNotificationBuilder = new NotificationCompat.Builder(this);
         mNotificationBuilder
                 .setSmallIcon(R.drawable.ic_notification)
-                .setContentTitle(getResources().getString(R.string.delete_failed));
+                .setContentTitle(path)
+                .setContentText(getResources().getString(R.string.delete_failed));
 
-        mNotificationManager.notify(R.string.move_failed, mNotificationBuilder.build());
+        mNotificationManager.notify(path.hashCode(), mNotificationBuilder.build());
     }
 
     private static class ServiceHandler extends Handler {
@@ -263,40 +260,49 @@ public class CloudOperationsService extends Service {
     }
 
     private boolean performMove(MoveOperation operation) {
+        final String path = operation.getPath();
+        Log.d(LOG_TAG, "Move for " + path + " has started");
+
         int statusCode = operation.execute(null);
 
         if (statusCode != 200) {
-            notifyMoveFailed(0);
+            notifyMoveFailed(path, 0);
         }
 
         return true;
     }
 
     private boolean performDelete(DeleteOperation operation) {
+        final String path = operation.getPath();
+        Log.d(LOG_TAG, "Delete for " + path + " has started");
+
         int statusCode = operation.execute(null);
 
         if (statusCode != 200) {
-            notifyDeleteFailed(0);
+            notifyDeleteFailed(path, 0);
         }
 
         return true;
     }
 
     private boolean performDownload(DownloadOperation operation) {
-        notifyDownload(operation.getPath());
+        final String path = operation.getPath();
+        Log.d(LOG_TAG, "Download for " + path + " has started");
+
+        notifyDownload(path);
 
 
         int statusCode = operation.execute(new ProgressListener() {
             @Override
             public void notifyProgress(int progress) {
-                notifyDownloadProgress(progress);
+                notifyDownloadProgress(path, progress);
             }
         });
 
         if (statusCode != 200) {
-            notifyDownloadResult(R.string.dw_error);
+            notifyDownloadResult(path, R.string.dw_error);
         } else {
-            notifyDownloadResult(R.string.dw_finished);
+            notifyDownloadResult(path, R.string.dw_finished);
         }
 
 
@@ -305,21 +311,32 @@ public class CloudOperationsService extends Service {
 
 
     private boolean performUpload(UploadOperation operation) {
-        notifyUpload(operation.getPath());
+        final String path = operation.getPath();
+        Log.d(LOG_TAG, "Upload for " + path + " has started");
+
+
+        notifyUpload(path);
 
         int resultStatus = operation.execute(new ProgressListener() {
             @Override
             public void notifyProgress(int progress) {
-                notifyUploadProgress(progress);
+                notifyUploadProgress(path, progress);
             }
         });
 
         if (resultStatus != 201 && resultStatus  != 200) {
-            notifyUploadResult(R.string.up_error);
+            notifyUploadResult(path, R.string.up_error);
         } else {
-            notifyUploadResult(R.string.up_finished);
+            notifyUploadResult(path, R.string.up_finished);
         }
 
         return true;
+    }
+
+    private Intent createNotificationIntent(String path) {
+        Intent intent = new Intent(Intent.ACTION_VIEW, Uri.fromFile(new File(FileUtils.getFileBase(), path)));
+        intent.addCategory(Intent.CATEGORY_BROWSABLE);
+
+        return intent;
     }
 }
