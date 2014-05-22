@@ -8,16 +8,15 @@ import com.example.floudcloud.app.network.exception.InternalServerError;
 import com.example.floudcloud.app.network.exception.NotFoundError;
 import com.example.floudcloud.app.utility.ProgressListener;
 
-import retrofit.RetrofitError;
-
 
 public class MoveOperation extends RemoteOperation {
     private String oldPath;
     private FloudFile floudService;
-    public MoveOperation(String apiKey, String newPath, String oldPath) {
+
+    public MoveOperation(String apiKey, String newPath, String oldPath, String regId) {
         super(apiKey, null, newPath);
         this.oldPath = oldPath;
-        floudService = new FloudService(apiKey).getFileService();
+        floudService = new FloudService(apiKey, regId).getFileService();
     }
 
     @Override

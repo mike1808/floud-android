@@ -2,18 +2,12 @@ package com.example.floudcloud.app.utility;
 
 import android.util.Log;
 
-import com.example.floudcloud.app.model.FileUpload;
-
-import java.io.DataOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.net.HttpURLConnection;
-import java.net.MalformedURLException;
-import java.net.URL;
 import java.security.DigestInputStream;
 import java.security.MessageDigest;
 import java.util.ArrayList;
@@ -87,7 +81,7 @@ public abstract class FileUtils {
             return null;
         }
 
-        for(File file : dirContent) {
+        for (File file : dirContent) {
             if (file.isDirectory()) {
                 files.addAll(getDirectoryContent(file));
             } else {
@@ -108,7 +102,7 @@ public abstract class FileUtils {
 
         for (File file : files) {
             try {
-                com.example.floudcloud.app.model.File fi  = new com.example.floudcloud.app.model.File(FileUtils.getFilePath(file, null), file.length(), FileUtils.getChecksum(file));
+                com.example.floudcloud.app.model.File fi = new com.example.floudcloud.app.model.File(FileUtils.getFilePath(file, null), file.length(), FileUtils.getChecksum(file));
 
                 resultFiles.add(fi);
             } catch (Exception e) {
@@ -151,6 +145,21 @@ public abstract class FileUtils {
         return dir.mkdir();
     }
 
+    public static boolean deleteFiles(ArrayList<String> files) {
+        if (files == null) return true;
+
+        boolean success = true;
+
+        for (String filePath : files) {
+            File file = new File(filePath);
+            if (file.isFile()) {
+                success = success && file.delete();
+            }
+        }
+
+        return success;
+    }
+
     private static byte[] getDigest(InputStream in) throws Throwable {
         MessageDigest md = MessageDigest.getInstance(CHECKSUM_ALGORITHM);
         try {
@@ -170,13 +179,12 @@ public abstract class FileUtils {
         char hexDigit[] = {'0', '1', '2', '3', '4', '5', '6', '7',
                 '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'};
         StringBuffer buf = new StringBuffer();
-        for (int j=0; j<b.length; j++) {
+        for (int j = 0; j < b.length; j++) {
             buf.append(hexDigit[(b[j] >> 4) & 0x0f]);
             buf.append(hexDigit[b[j] & 0x0f]);
         }
         return buf.toString();
     }
-
 
 
 }

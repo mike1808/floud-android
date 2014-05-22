@@ -31,30 +31,33 @@ public class FloudService {
     private long timestamp;
 
     public FloudService() {
-        RestAdapter authRestAdapter  = new RestAdapter.Builder()
+        RestAdapter authRestAdapter = new RestAdapter.Builder()
                 .setEndpoint(AUTH_URL)
                 .setConverter(new GsonConverter(new Gson()))
                 .setErrorHandler(new MyErrorHandler())
+                .setLogLevel(RestAdapter.LogLevel.FULL)
                 .build();
 
         floudAuthService = authRestAdapter.create(FloudAuth.class);
     }
 
-    public FloudService(String apiKey) {
+    public FloudService(String apiKey, final String regId) {
         setApiKey(apiKey);
 
         RequestInterceptor authInterceptor = new RequestInterceptor() {
             @Override
             public void intercept(RequestInterceptor.RequestFacade request) {
                 request.addHeader("Authorization", getApiKey());
+                request.addQueryParam("regId", regId);
             }
         };
 
-        RestAdapter fileRestAdapter  = new RestAdapter.Builder()
+        RestAdapter fileRestAdapter = new RestAdapter.Builder()
                 .setEndpoint(FILE_URL)
                 .setConverter(new GsonConverter(new Gson()))
                 .setErrorHandler(new MyErrorHandler())
                 .setRequestInterceptor(authInterceptor)
+                .setLogLevel(RestAdapter.LogLevel.FULL)
                 .build();
 
         floudFileService = fileRestAdapter.create(FloudFile.class);
@@ -97,7 +100,8 @@ public class FloudService {
 
 
     private static class MyErrorHandler implements ErrorHandler {
-        @Override public Throwable handleError(RetrofitError cause) {
+        @Override
+        public Throwable handleError(RetrofitError cause) {
             Response r = cause.getResponse();
             if (r != null) {
                 if (r.getStatus() == 401) {

@@ -38,7 +38,7 @@ public class SignupActivity extends BaseActivity {
             String fullname = fullnameEditText.getText().toString();
             String password = pwdEditText.getText().toString();
 
-            if(username.isEmpty() || email.isEmpty() || fullname.isEmpty() || password.isEmpty()) {
+            if (username.isEmpty() || email.isEmpty() || fullname.isEmpty() || password.isEmpty()) {
                 Toast.makeText(SignupActivity.this, R.string.signup_warning, Toast.LENGTH_LONG).show();
                 return;
             }
@@ -67,7 +67,7 @@ public class SignupActivity extends BaseActivity {
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
-        
+
         // Inflate the menu; this adds items to the action bar if it is present.
         getMenuInflater().inflate(R.menu.signup, menu);
         return true;
@@ -108,7 +108,7 @@ public class SignupActivity extends BaseActivity {
         }
 
         @Override
-        protected User doInBackground(UserSignup ...users) {
+        protected User doInBackground(UserSignup... users) {
             User user = null;
             try {
                 user = getFloudService().signup(users[0]);

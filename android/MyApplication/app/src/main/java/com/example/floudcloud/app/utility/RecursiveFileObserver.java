@@ -18,16 +18,16 @@
 
 package com.example.floudcloud.app.utility;
 
+import android.os.FileObserver;
+
 import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Stack;
 
-import android.os.FileObserver;
-
 public class RecursiveFileObserver extends FileObserver {
 
-    public static int CHANGES_ONLY = CLOSE_WRITE | MOVE_SELF | MOVED_FROM | MOVED_TO | DELETE ;
+    public static int CHANGES_ONLY = CLOSE_WRITE | MOVE_SELF | MOVED_FROM | MOVED_TO | DELETE;
 
     List<SingleFileObserver> mObservers;
     String mPath;

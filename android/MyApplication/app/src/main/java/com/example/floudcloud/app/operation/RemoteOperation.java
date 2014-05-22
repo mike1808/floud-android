@@ -1,6 +1,6 @@
 package com.example.floudcloud.app.operation;
 
-public abstract class RemoteOperation implements Operation{
+public abstract class RemoteOperation implements Operation {
     private String apiKey;
     private String path;
     private String uri;

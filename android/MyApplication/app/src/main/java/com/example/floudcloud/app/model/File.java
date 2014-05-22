@@ -1,20 +1,21 @@
 package com.example.floudcloud.app.model;
 
 import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Date;
 
 public class File {
     private String path;
     private long size;
     private int version;
+    private boolean deleted;
     private String hash;
+    private String modified;
     private String created;
 
     public File(String path, long size, String hash) {
         this.path = path;
         this.size = size;
         this.hash = hash;
+        this.deleted = false;
     }
 
     @Override
@@ -25,7 +26,9 @@ public class File {
 
         File file = (File) other;
 
-        return this.path.equals(file.getPath()) && this.hash.equals(file.getHash());
+        return this.path.equals(file.getPath()) &&
+                this.hash.equals(file.getHash()) &&
+                this.deleted == file.isDeleted();
     }
 
     public String getHash() {
@@ -46,6 +49,14 @@ public class File {
 
     public String getCreated() {
         return created;
+    }
+
+    public boolean isDeleted() {
+        return deleted;
+    }
+
+    public String getModified() {
+        return modified;
     }
 
     @SuppressWarnings("serial")

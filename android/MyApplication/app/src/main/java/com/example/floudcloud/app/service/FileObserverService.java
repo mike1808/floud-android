@@ -1,32 +1,41 @@
 package com.example.floudcloud.app.service;
 
 import android.app.Service;
+import android.content.BroadcastReceiver;
+import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.os.Binder;
 import android.os.IBinder;
 import android.util.Log;
 
-import com.example.floudcloud.app.model.File;
 import com.example.floudcloud.app.model.FileUpload;
 import com.example.floudcloud.app.utility.FileUtils;
 import com.example.floudcloud.app.utility.RecursiveFileObserver;
 
-import java.util.ArrayList;
-
 public class FileObserverService extends Service {
     public final static String EXTRA_PATH = "PATH";
     public final static String EXTRA_API_KEY = "API_KEY";
+    public final static String EXTRA_REG_ID = "REG_ID";
+
+    public final static String CHANGE_WATCHER_STATUS = "CHANGE_WATCHER_STATUS";
+    public static final String EXTRA_OPERATION = "EXTRA_OPERATION";
+
+    public static final String OPERATION_STOP = "OPERATION_STOP";
+    public static final String OPERATION_START = "OPERATION_START";
 
     private final String LOG_TAG = FileObserverService.class.getSimpleName();
     private LocalFileObserver mFileObserver;
     private String mApiKey;
-    private ArrayList<File> mFileArrayList;
+    private String mRegId;
     private boolean mWatching = false;
 
     private IBinder mBinder = new LocalBinder();
 
     private String lastMovedFrom;
     private boolean waitForMove = false;
+
+    private WatcherManager watcherManager;
 
     public class LocalBinder extends Binder {
         FileObserverService getService() {
@@ -46,24 +55,29 @@ public class FileObserverService extends Service {
 
     @Override
     public IBinder onBind(Intent intent) {
+        if (!intent.hasExtra(EXTRA_PATH) && !intent.hasExtra(EXTRA_API_KEY) && !intent.hasExtra(EXTRA_REG_ID)) {
+            Log.e(LOG_TAG, "No PATH and API_KEY argument given");
+            return null;
+        }
+
+        String path = intent.getStringExtra(EXTRA_PATH);
+        mApiKey = intent.getStringExtra(EXTRA_API_KEY);
+        mRegId = intent.getStringExtra(EXTRA_REG_ID);
+
+        mFileObserver = new LocalFileObserver(path, LocalFileObserver.CHANGES_ONLY);
+
+        if (watcherManager == null) watcherManager = new WatcherManager();
+        IntentFilter intentFilter = new IntentFilter(CHANGE_WATCHER_STATUS);
+        registerReceiver(watcherManager, intentFilter);
+
         return mBinder;
     }
 
     @Override
-    public int onStartCommand(Intent intent, int flags, int startId) {
-        if (!intent.hasExtra(EXTRA_PATH) && !intent.hasExtra(EXTRA_API_KEY)) {
-            Log.e(LOG_TAG, "No PATH and API_KEY argument given");
-            return START_STICKY;
-        }
-
-
-        String path = intent.getStringExtra(EXTRA_PATH);
-        mApiKey = intent.getStringExtra(EXTRA_API_KEY);
-
-        mFileObserver = new LocalFileObserver(path, LocalFileObserver.CHANGES_ONLY);
-        startWatcher();
-
-        return START_STICKY;
+    public boolean onUnbind(Intent intent) {
+        stopWatcher();
+        if (watcherManager != null) unregisterReceiver(watcherManager);
+        return true;
     }
 
     public void startWatcher() {
@@ -80,20 +94,26 @@ public class FileObserverService extends Service {
         return mWatching;
     }
 
-    private File findFileByHash(String hash) {
-        for (File file : mFileArrayList) {
-            if (file.getHash().equals(hash)) {
-                return file;
+    private class WatcherManager extends BroadcastReceiver {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            if (intent.getAction().equals(FileObserverService.CHANGE_WATCHER_STATUS)) {
+                String op = intent.getStringExtra(EXTRA_OPERATION);
+
+                if (op.equals(OPERATION_START)) {
+                    startWatcher();
+                } else if (op.equals(OPERATION_STOP)) {
+                    stopWatcher();
+                }
             }
         }
-
-        return null;
     }
 
     private class LocalFileObserver extends RecursiveFileObserver {
         public LocalFileObserver(String path) {
             super(path);
         }
+
         public LocalFileObserver(String path, int mask) {
             super(path, mask);
         }
@@ -138,6 +158,7 @@ public class FileObserverService extends Service {
             Intent moveIntent = new Intent(FileObserverService.this, CloudOperationsService.class);
             moveIntent.putExtra(CloudOperationsService.EXTRA_OPERATION, CloudOperationsService.OPERATION_MOVE);
             moveIntent.putExtra(CloudOperationsService.EXTRA_API_KEY, mApiKey);
+            moveIntent.putExtra(CloudOperationsService.EXTRA_REG_ID, mRegId);
             moveIntent.putExtra(CloudOperationsService.EXTRA_PATH, FileUtils.getFilePath(null, path));
             moveIntent.putExtra(CloudOperationsService.EXTRA_OLD_PATH, FileUtils.getFilePath(null, lastMovedFrom));
 
@@ -153,11 +174,12 @@ public class FileObserverService extends Service {
                 return;
             }
 
-            FileUpload fileUpload = new FileUpload(FileUtils.getFilePath(null, path), FileUtils.getFileSize(path), hash);
+            FileUpload fileUpload = new FileUpload(FileUtils.getFilePath(null, path), FileUtils.getFileSize(path), hash, mRegId);
 
             Intent uploadIntent = new Intent(FileObserverService.this, CloudOperationsService.class);
             uploadIntent.putExtra(CloudOperationsService.EXTRA_OPERATION, CloudOperationsService.OPERATION_UPLOAD);
             uploadIntent.putExtra(CloudOperationsService.EXTRA_API_KEY, mApiKey);
+            uploadIntent.putExtra(CloudOperationsService.EXTRA_REG_ID, mRegId);
             uploadIntent.putExtra(CloudOperationsService.EXTRA_FILE, fileUpload);
 
             startService(uploadIntent);
@@ -167,6 +189,7 @@ public class FileObserverService extends Service {
             Intent delete = new Intent(FileObserverService.this, CloudOperationsService.class);
             delete.putExtra(CloudOperationsService.EXTRA_OPERATION, CloudOperationsService.OPERATION_DELETE);
             delete.putExtra(CloudOperationsService.EXTRA_API_KEY, mApiKey);
+            delete.putExtra(CloudOperationsService.EXTRA_REG_ID, mRegId);
             delete.putExtra(CloudOperationsService.EXTRA_PATH, FileUtils.getFilePath(null, path));
 
             startService(delete);

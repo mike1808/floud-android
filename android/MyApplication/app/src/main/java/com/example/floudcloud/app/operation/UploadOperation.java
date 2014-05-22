@@ -29,17 +29,19 @@ public class UploadOperation extends RemoteOperation {
     private File file;
     private ProgressListener progressListener;
     private long uploaded;
+    private String regId;
 
-    public UploadOperation(FileUpload fileUpload, String apiKey, String storagePath) {
+    public UploadOperation(FileUpload fileUpload, String apiKey, String storagePath, String regId) {
         super(apiKey, FloudService.FILE_URL, fileUpload.path);
         this.uploaded = 0;
         this.fileUpload = fileUpload;
         this.file = new File(storagePath + fileUpload.path);
+        this.regId = regId;
     }
 
     public int postFile() throws Exception {
         HttpClient client = new DefaultHttpClient();
-        HttpPost post = new HttpPost(getUri());
+        HttpPost post = new HttpPost(getUri() + "/?regId=" + this.regId);
         MultipartEntityBuilder builder = MultipartEntityBuilder.create();
         builder.setMode(HttpMultipartMode.BROWSER_COMPATIBLE);
 
@@ -49,7 +51,7 @@ public class UploadOperation extends RemoteOperation {
         builder.addPart("file", fb);
         builder.addTextBody("path", fileUpload.path);
         builder.addTextBody("size", Long.toString(fileUpload.size));
-        builder.addTextBody("hash",  fileUpload.hash);
+        builder.addTextBody("hash", fileUpload.hash);
         final HttpEntity yourEntity = builder.build();
 
         int total = 0;
@@ -59,31 +61,38 @@ public class UploadOperation extends RemoteOperation {
             public void consumeContent() throws IOException {
                 yourEntity.consumeContent();
             }
+
             @Override
             public InputStream getContent() throws IOException,
                     IllegalStateException {
                 return yourEntity.getContent();
             }
+
             @Override
             public Header getContentEncoding() {
                 return yourEntity.getContentEncoding();
             }
+
             @Override
             public long getContentLength() {
                 return yourEntity.getContentLength();
             }
+
             @Override
             public Header getContentType() {
                 return yourEntity.getContentType();
             }
+
             @Override
             public boolean isChunked() {
                 return yourEntity.isChunked();
             }
+
             @Override
             public boolean isRepeatable() {
                 return yourEntity.isRepeatable();
             }
+
             @Override
             public boolean isStreaming() {
                 return yourEntity.isStreaming();
@@ -100,18 +109,23 @@ public class UploadOperation extends RemoteOperation {
                     public ProxyOutputStream(OutputStream proxy) {
                         super(proxy);
                     }
+
                     public void write(int idx) throws IOException {
                         out.write(idx);
                     }
+
                     public void write(byte[] bts) throws IOException {
                         out.write(bts);
                     }
+
                     public void write(byte[] bts, int st, int end) throws IOException {
                         out.write(bts, st, end);
                     }
+
                     public void flush() throws IOException {
                         out.flush();
                     }
+
                     public void close() throws IOException {
                         out.close();
                     }
@@ -121,9 +135,10 @@ public class UploadOperation extends RemoteOperation {
                     public ProgressiveOutputStream(OutputStream proxy) {
                         super(proxy);
                     }
+
                     public void write(byte[] bts, int st, int end) throws IOException {
                         uploaded += (int) end - st;
-                        progressListener.notifyProgress((int)( (float) uploaded * 100 / fileUpload.size));
+                        progressListener.notifyProgress((int) ((float) uploaded * 100 / fileUpload.size));
 
                         out.write(bts, st, end);
                     }

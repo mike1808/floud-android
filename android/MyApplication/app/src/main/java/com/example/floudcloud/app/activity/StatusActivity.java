@@ -10,8 +10,6 @@ import android.widget.Button;
 import android.widget.Toast;
 
 import com.example.floudcloud.app.R;
-import com.example.floudcloud.app.service.CloudOperationsService;
-import com.example.floudcloud.app.service.FileObserverService;
 import com.example.floudcloud.app.service.MainService;
 import com.example.floudcloud.app.utility.Constants;
 import com.example.floudcloud.app.utility.FileUtils;
@@ -20,6 +18,9 @@ import com.example.floudcloud.app.utility.SharedPrefs;
 
 public class StatusActivity extends BaseActivity {
     private final int SETTINGS = 1;
+
+    private String apiKey;
+    private String regid;
 
     private View.OnClickListener onSettingsButtonClickListener = new View.OnClickListener() {
         @Override
@@ -39,7 +40,7 @@ public class StatusActivity extends BaseActivity {
             if (path.isEmpty()) {
                 Toast.makeText(StatusActivity.this, "Specify path of the directory in settings", Toast.LENGTH_LONG).show();
             } else {
-                startMonitoring(SharedPrefs.getItem("", Constants.PREF_API_KEY), path);
+                startMonitoring(path);
             }
 
         }
@@ -53,7 +54,7 @@ public class StatusActivity extends BaseActivity {
             if (path.isEmpty()) {
                 Toast.makeText(StatusActivity.this, "Specify path of the directory in settings", Toast.LENGTH_LONG).show();
             } else {
-                startObs(SharedPrefs.getItem("", Constants.PREF_API_KEY), path);
+                startObs(path);
             }
 
         }
@@ -74,12 +75,16 @@ public class StatusActivity extends BaseActivity {
 
         String path = SharedPrefs.getItem(null, SharedPrefs.PREF_PATH);
         FileUtils.setFilePathBase(Environment.getExternalStorageDirectory().getAbsolutePath() + path);
+
+        Intent intent = getIntent();
+        regid = intent.getStringExtra(MainService.EXTRA_REG_ID);
+        apiKey = intent.getStringExtra(MainService.EXTRA_API_KEY);
     }
 
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
-        
+
         // Inflate the menu; this adds items to the action bar if it is present.
         getMenuInflater().inflate(R.menu.status, menu);
         return true;
@@ -102,7 +107,7 @@ public class StatusActivity extends BaseActivity {
         super.onActivityResult(requestCode, resultCode, data);
 
         switch (requestCode) {
-            case (SETTINGS) :
+            case (SETTINGS):
                 if (resultCode == SettingsActivity.RESULT_LOGOUT) {
                     //TODO: Stop service
                     SharedPrefs.addItem(Constants.PREF_API_KEY, null);
@@ -113,20 +118,23 @@ public class StatusActivity extends BaseActivity {
     }
 
 
-    private void startObs(String apiKey, String path) {
+    private void startObs(String path) {
         Intent intent = new Intent(this, MainService.class);
         intent.putExtra(MainService.EXTRA_PATH, path);
         intent.putExtra(MainService.EXTRA_API_KEY, apiKey);
+        intent.putExtra(MainService.EXTRA_REG_ID, regid);
+
         // FIXME :(
         intent.putExtra(MainService.EXTRA_MEGA_KASTIL, 1);
         startService(intent);
     }
 
 
-    private void startMonitoring(String apiKey, String path) {
+    private void startMonitoring(String path) {
         Intent intent = new Intent(this, MainService.class);
         intent.putExtra(MainService.EXTRA_PATH, path);
-        intent.putExtra(CloudOperationsService.EXTRA_API_KEY, apiKey);
+        intent.putExtra(MainService.EXTRA_API_KEY, apiKey);
+        intent.putExtra(MainService.EXTRA_REG_ID, regid);
         startService(intent);
     }
 

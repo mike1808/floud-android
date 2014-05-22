@@ -40,8 +40,6 @@ public class DownloadOperation extends RemoteOperation {
             connection.setRequestProperty("Authorization", getApiKey());
             connection.connect();
 
-
-
             int fileLength = connection.getContentLength();
 
             input = new BufferedInputStream(connection.getInputStream());

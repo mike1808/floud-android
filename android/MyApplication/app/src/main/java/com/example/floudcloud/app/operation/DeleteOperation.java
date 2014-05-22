@@ -1,6 +1,5 @@
 package com.example.floudcloud.app.operation;
 
-import com.example.floudcloud.app.model.FileMove;
 import com.example.floudcloud.app.network.FloudFile;
 import com.example.floudcloud.app.network.FloudService;
 import com.example.floudcloud.app.network.exception.BadRequestError;
@@ -15,9 +14,10 @@ import retrofit.RetrofitError;
  */
 public class DeleteOperation extends RemoteOperation {
     private FloudFile floudService;
-    public DeleteOperation(String apiKey, String path) {
+
+    public DeleteOperation(String apiKey, String path, String regId) {
         super(null, null, path);
-        floudService = new FloudService(apiKey).getFileService();
+        floudService = new FloudService(apiKey, regId).getFileService();
     }
 
     @Override

@@ -21,7 +21,7 @@ public interface FloudFile {
 
     @Multipart
     @POST("/upload")
-    File uploadFile(@Part("file")TypedFile file, @Field("path") String path,
+    File uploadFile(@Part("file") TypedFile file, @Field("path") String path,
                     @Field("size") long size, @Field("hash") String hash);
 
     @GET("/file")

@@ -15,7 +15,6 @@ import android.util.Log;
 
 import com.example.floudcloud.app.R;
 import com.example.floudcloud.app.model.FileUpload;
-import com.example.floudcloud.app.network.FloudService;
 import com.example.floudcloud.app.operation.DeleteOperation;
 import com.example.floudcloud.app.operation.DownloadOperation;
 import com.example.floudcloud.app.operation.MoveOperation;
@@ -33,6 +32,7 @@ public class CloudOperationsService extends Service {
     public static final String EXTRA_OLD_PATH = "OLD_PATH";
     public static final String EXTRA_API_KEY = "API_KEY";
     public static final String EXTRA_FILE = "FILE";
+    public static final String EXTRA_REG_ID = "REG_ID";
 
     public static final int OPERATION_NOP = -1;
     public static final int OPERATION_DOWNLOAD = 0;
@@ -47,7 +47,6 @@ public class CloudOperationsService extends Service {
 
     private ServiceHandler mServiceHandler;
     private IBinder mBinder;
-    private FloudService mFloudService;
     private ConcurrentLinkedQueue<RemoteOperation> mOperations = new ConcurrentLinkedQueue<RemoteOperation>();
 
     @Override
@@ -56,7 +55,7 @@ public class CloudOperationsService extends Service {
 
         mNotificationManager = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
 
-        HandlerThread thread =  new HandlerThread("Operations thread", android.os.Process.THREAD_PRIORITY_BACKGROUND);
+        HandlerThread thread = new HandlerThread("Operations thread", android.os.Process.THREAD_PRIORITY_BACKGROUND);
         thread.start();
         Looper mServiceLooper = thread.getLooper();
         mServiceHandler = new ServiceHandler(mServiceLooper, this);
@@ -75,7 +74,7 @@ public class CloudOperationsService extends Service {
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        if (!intent.hasExtra(EXTRA_OPERATION)  && !intent.hasExtra(EXTRA_API_KEY)) {
+        if (!intent.hasExtra(EXTRA_OPERATION) && !intent.hasExtra(EXTRA_API_KEY)) {
             Log.e(LOG_TAG, "Not enough information provided in intent");
             return START_NOT_STICKY;
         }
@@ -84,6 +83,7 @@ public class CloudOperationsService extends Service {
 
         String apiKey = intent.getStringExtra(EXTRA_API_KEY);
         String path = intent.getStringExtra(EXTRA_PATH);
+        String regId = intent.getStringExtra(EXTRA_REG_ID);
         FileUpload fileUpload = intent.getParcelableExtra(EXTRA_FILE);
 
         switch (operation) {
@@ -91,18 +91,16 @@ public class CloudOperationsService extends Service {
                 mOperations.add(new DownloadOperation(path, apiKey, FileUtils.getFileBase()));
                 break;
             case OPERATION_UPLOAD:
-                mOperations.add(new UploadOperation(fileUpload, apiKey, FileUtils.getFileBase()));
+                mOperations.add(new UploadOperation(fileUpload, apiKey, FileUtils.getFileBase(), regId));
                 break;
             case OPERATION_MOVE:
                 String oldPath = intent.getStringExtra(EXTRA_OLD_PATH);
-                mOperations.add(new MoveOperation(apiKey, path, oldPath));
+                mOperations.add(new MoveOperation(apiKey, path, oldPath, regId));
                 break;
             case OPERATION_DELETE:
-                mOperations.add(new DeleteOperation(apiKey, path));
+                mOperations.add(new DeleteOperation(apiKey, path, regId));
                 break;
         }
-
-        mFloudService = new FloudService(apiKey);
 
         Message msg = mServiceHandler.obtainMessage();
         msg.arg1 = startId;
@@ -230,9 +228,26 @@ public class CloudOperationsService extends Service {
 
         @Override
         public void handleMessage(Message msg) {
+            mService.stopObserver();
+
             mService.nextOperation();
+
+            mService.startObserver();
+
             mService.stopSelf(msg.arg1);
         }
+    }
+
+    private void startObserver() {
+        Intent observer = new Intent(FileObserverService.CHANGE_WATCHER_STATUS);
+        observer.putExtra(FileObserverService.EXTRA_OPERATION, FileObserverService.OPERATION_START);
+        sendBroadcast(observer);
+    }
+
+    private void stopObserver() {
+        Intent observer = new Intent(FileObserverService.CHANGE_WATCHER_STATUS);
+        observer.putExtra(FileObserverService.EXTRA_OPERATION, FileObserverService.OPERATION_STOP);
+        sendBroadcast(observer);
     }
 
     private void nextOperation() {
@@ -324,7 +339,7 @@ public class CloudOperationsService extends Service {
             }
         });
 
-        if (resultStatus != 201 && resultStatus  != 200) {
+        if (resultStatus != 201 && resultStatus != 200) {
             notifyUploadResult(path, R.string.up_error);
         } else {
             notifyUploadResult(path, R.string.up_finished);

@@ -1,12 +1,12 @@
 package com.example.floudcloud.app.service;
 
-import android.app.NotificationManager;
 import android.app.Service;
+import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.ServiceConnection;
-import android.os.Binder;
 import android.os.Environment;
 import android.os.Handler;
 import android.os.HandlerThread;
@@ -14,9 +14,7 @@ import android.os.IBinder;
 import android.os.Looper;
 import android.os.Message;
 import android.os.Process;
-import android.support.v4.app.NotificationCompat;
 import android.util.Log;
-import android.widget.Toast;
 
 import com.example.floudcloud.app.model.FileUpload;
 import com.example.floudcloud.app.network.FloudService;
@@ -24,12 +22,9 @@ import com.example.floudcloud.app.network.exception.InternalServerError;
 import com.example.floudcloud.app.network.exception.NotFoundError;
 import com.example.floudcloud.app.network.exception.UnauthorizedError;
 import com.example.floudcloud.app.utility.FileUtils;
-import com.example.floudcloud.app.utility.SharedPrefs;
 
 import java.io.File;
 import java.util.ArrayList;
-import java.util.Date;
-import java.util.Iterator;
 
 import retrofit.RetrofitError;
 
@@ -39,16 +34,35 @@ public class MainService extends Service {
 
     public static String EXTRA_PATH = "PATH";
     public static String EXTRA_API_KEY = "API_KEY";
+    public static String EXTRA_REG_ID = "REG_ID";
+
+    public static String RUN_DIGEST = "RUN_DIGEST";
+
     public static final String EXTRA_MEGA_KASTIL = "bilo 3 chasa nochi i nuzhno bilo pisat diplom";
 
     private ServiceHandler mServiceHandler;
-    private IBinder mBinder = new LocalBinder();
     private String mApiKey;
+    private String mRegId;
+    private String mPath;
     private FloudService floudService;
+    private DigestRunner digestRunner;
 
 
     private FileObserverService mFileObserverService;
     private boolean mFileObserverServiceBound = false;
+
+    private class DigestRunner extends BroadcastReceiver {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            if (intent.getAction().equals(RUN_DIGEST)) {
+                mFileObserverService.startWatcher();
+
+                Message msg = mServiceHandler.obtainMessage();
+                msg.obj = mPath;
+                mServiceHandler.sendMessage(msg);
+            }
+        }
+    }
 
     private ServiceConnection mFileObserverConnection = new ServiceConnection() {
         @Override
@@ -64,13 +78,6 @@ public class MainService extends Service {
         }
     };
 
-
-    public class LocalBinder extends Binder {
-        MainService getService() {
-            return MainService.this;
-        }
-    }
-
     public MainService() {
         super();
     }
@@ -78,46 +85,62 @@ public class MainService extends Service {
 
     @Override
     public IBinder onBind(Intent intent) {
-        return mBinder;
+        return null;
     }
 
     @Override
     public void onCreate() {
         super.onCreate();
-        HandlerThread thread =  new HandlerThread("Main thread", Process.THREAD_PRIORITY_BACKGROUND);
+        HandlerThread thread = new HandlerThread("Main service thread", Process.THREAD_PRIORITY_BACKGROUND);
         thread.start();
         Looper mServiceLooper = thread.getLooper();
         mServiceHandler = new ServiceHandler(mServiceLooper, this);
+
+        if (digestRunner == null) digestRunner = new DigestRunner();
+        IntentFilter intentFilter = new IntentFilter(RUN_DIGEST);
+        registerReceiver(digestRunner, intentFilter);
+    }
+
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+
+        if (mFileObserverServiceBound) {
+            unbindService(mFileObserverConnection);
+        }
+
+        if (digestRunner != null) unregisterReceiver(digestRunner);
     }
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        if (!intent.hasExtra(EXTRA_PATH) && !intent.hasExtra(EXTRA_API_KEY)) {
+        if (!intent.hasExtra(EXTRA_PATH) && !intent.hasExtra(EXTRA_API_KEY) && !intent.hasExtra(EXTRA_REG_ID)) {
             Log.e(LOG_TAG, "Not enough information provided in intent");
             return START_NOT_STICKY;
         }
 
-        String path = Environment.getExternalStorageDirectory().getAbsolutePath() + intent.getStringExtra(CloudOperationsService.EXTRA_PATH);
-        mApiKey = intent.getStringExtra(CloudOperationsService.EXTRA_API_KEY);
+        mPath = Environment.getExternalStorageDirectory().getAbsolutePath() + intent.getStringExtra(CloudOperationsService.EXTRA_PATH);
+        mApiKey = intent.getStringExtra(EXTRA_API_KEY);
+        mRegId = intent.getStringExtra(EXTRA_REG_ID);
 
-        floudService = new FloudService(mApiKey);
+        floudService = new FloudService(mApiKey, mRegId);
 
         Message msg = mServiceHandler.obtainMessage();
         msg.arg1 = startId;
-        msg.obj = path;
+        msg.obj = mPath;
         // FIXME :(
         msg.arg2 = intent.getIntExtra(EXTRA_MEGA_KASTIL, 0);
         mServiceHandler.sendMessage(msg);
 
-        /*Intent fileObserverIntent = new Intent(this, FileObserverService.class);
+        Intent fileObserverIntent = new Intent(this, FileObserverService.class);
         fileObserverIntent.putExtra(FileObserverService.EXTRA_API_KEY, mApiKey);
-        fileObserverIntent.putExtra(FileObserverService.EXTRA_PATH, path);
-        startService(fileObserverIntent);
-
-        bindService(fileObserverIntent, mFileObserverConnection, Context.BIND_AUTO_CREATE);*/
+        fileObserverIntent.putExtra(FileObserverService.EXTRA_PATH, mPath);
+        fileObserverIntent.putExtra(FileObserverService.EXTRA_REG_ID, mRegId);
+        bindService(fileObserverIntent, mFileObserverConnection, Context.BIND_AUTO_CREATE);
 
         return START_NOT_STICKY;
     }
+
 
     public boolean getStatus() {
         return mFileObserverService.getWatcherStatus();
@@ -172,9 +195,9 @@ public class MainService extends Service {
             return null;
         }
 
-        ArrayList<com.example.floudcloud.app.model.File> filesDiff = (com.example.floudcloud.app.model.File.List)cloudFiles.clone();
+        ArrayList<com.example.floudcloud.app.model.File> filesDiff = (com.example.floudcloud.app.model.File.List) cloudFiles.clone();
 
-        if(localFiles != null) {
+        if (localFiles != null) {
             filesDiff.removeAll(localFiles);
         }
 
@@ -185,10 +208,38 @@ public class MainService extends Service {
         ArrayList<String> filesToBeDownloaded = new ArrayList<String>();
 
         for (com.example.floudcloud.app.model.File file : filesDiff) {
-            filesToBeDownloaded.add(file.getPath());
+            if (!file.isDeleted()) {
+                filesToBeDownloaded.add(file.getPath());
+            }
         }
 
         return filesToBeDownloaded;
+    }
+
+    private ArrayList<String> getFileToBeDeleted(com.example.floudcloud.app.model.File.List cloudFiles, ArrayList<com.example.floudcloud.app.model.File> localFiles) {
+        if (cloudFiles == null) {
+            return null;
+        }
+
+        ArrayList<com.example.floudcloud.app.model.File> filesDiff = (com.example.floudcloud.app.model.File.List) cloudFiles.clone();
+
+        if (localFiles != null) {
+            filesDiff.removeAll(localFiles);
+        }
+
+        if (filesDiff == null) {
+            return null;
+        }
+
+        ArrayList<String> fileToBeDeleted = new ArrayList<String>();
+
+        for (com.example.floudcloud.app.model.File file : filesDiff) {
+            if (file.isDeleted()) {
+                fileToBeDeleted.add(file.getPath());
+            }
+        }
+
+        return fileToBeDeleted;
     }
 
     private ArrayList<FileUpload> getFilesToBeUploaded(com.example.floudcloud.app.model.File.List cloudFiles, ArrayList<com.example.floudcloud.app.model.File> localFiles) {
@@ -196,7 +247,7 @@ public class MainService extends Service {
             return null;
         }
 
-        ArrayList<com.example.floudcloud.app.model.File> filesDiff = (ArrayList<com.example.floudcloud.app.model.File>)localFiles.clone();
+        ArrayList<com.example.floudcloud.app.model.File> filesDiff = (ArrayList<com.example.floudcloud.app.model.File>) localFiles.clone();
 
         if (cloudFiles != null) {
             filesDiff.removeAll(cloudFiles);
@@ -209,7 +260,7 @@ public class MainService extends Service {
         ArrayList<FileUpload> filesToBeUploaded = new ArrayList<FileUpload>();
 
         for (com.example.floudcloud.app.model.File file : filesDiff) {
-            filesToBeUploaded.add(new FileUpload(file.getPath(), file.getSize(), file.getHash()));
+            filesToBeUploaded.add(new FileUpload(file.getPath(), file.getSize(), file.getHash(), mRegId));
         }
 
         return filesToBeUploaded;
@@ -220,6 +271,7 @@ public class MainService extends Service {
             Intent downloadIntent = new Intent(MainService.this, CloudOperationsService.class);
             downloadIntent.putExtra(CloudOperationsService.EXTRA_API_KEY, mApiKey);
             downloadIntent.putExtra(CloudOperationsService.EXTRA_PATH, filePath);
+            downloadIntent.putExtra(CloudOperationsService.EXTRA_REG_ID, mRegId);
             downloadIntent.putExtra(CloudOperationsService.EXTRA_OPERATION, CloudOperationsService.OPERATION_DOWNLOAD);
 
             startService(downloadIntent);
@@ -232,10 +284,18 @@ public class MainService extends Service {
             uploadIntent.putExtra(CloudOperationsService.EXTRA_API_KEY, mApiKey);
             uploadIntent.putExtra(CloudOperationsService.EXTRA_FILE, file);
             uploadIntent.putExtra(CloudOperationsService.EXTRA_OPERATION, CloudOperationsService.OPERATION_UPLOAD);
+            uploadIntent.putExtra(CloudOperationsService.EXTRA_REG_ID, mRegId);
 
             startService(uploadIntent);
         }
     }
+
+    private void deleteLocaleFiles(ArrayList<String> files) {
+        if (!FileUtils.deleteFiles(files)) {
+            Log.e(LOG_TAG, "Could not delete locale files!");
+        }
+    }
+
 
     private static class ServiceHandler extends Handler {
         private MainService mService;
@@ -250,32 +310,32 @@ public class MainService extends Service {
             String path = (String) msg.obj;
 
             if (path != null) {
-                if(msg.arg2 == 1) {
-                    Intent fileObserverIntent = new Intent(mService, FileObserverService.class);
-                    fileObserverIntent.putExtra(FileObserverService.EXTRA_API_KEY, mService.mApiKey);
-                    fileObserverIntent.putExtra(FileObserverService.EXTRA_PATH, path);
-                    mService.startService(fileObserverIntent);
-                }
+                digest(path);
 
-                ArrayList<File> pathContent = FileUtils.getDirectoryContent(new File(path));
-                ArrayList<com.example.floudcloud.app.model.File> localeFiles = FileUtils.generateFilesList(pathContent);
-                com.example.floudcloud.app.model.File.List cloudFiles = mService.fetchFiles(true);
+                mService.mFileObserverService.startWatcher();
+            }
+        }
 
-                ArrayList<String> filesToBeDownloaded = mService.getFilesToBeDownloaded(cloudFiles, localeFiles);
-                ArrayList<FileUpload> filesToBeUploaded = mService.getFilesToBeUploaded(mService.fetchFiles(false), localeFiles);
+        private void digest(String path) {
+            ArrayList<File> pathContent = FileUtils.getDirectoryContent(new File(path));
+            ArrayList<com.example.floudcloud.app.model.File> localeFiles = FileUtils.generateFilesList(pathContent);
+            com.example.floudcloud.app.model.File.List cloudFiles = mService.fetchFiles(true);
 
-                if (filesToBeDownloaded != null) {
-                    mService.downloadFiles(filesToBeDownloaded);
-                }
+            ArrayList<String> filesToBeDownloaded = mService.getFilesToBeDownloaded(cloudFiles, localeFiles);
+            ArrayList<String> fileToBeDeleted = mService.getFileToBeDeleted(cloudFiles, localeFiles);
+            ArrayList<FileUpload> filesToBeUploaded = mService.getFilesToBeUploaded(mService.fetchFiles(false), localeFiles);
 
-                if (filesToBeUploaded != null) {
-                    mService.uploadFiles(filesToBeUploaded);
-                }
-
-                //mService.mFileObserverService.startWatcher();
+            if (fileToBeDeleted != null && !fileToBeDeleted.isEmpty()) {
+                mService.deleteLocaleFiles(filesToBeDownloaded);
             }
 
-            mService.stopSelf(msg.arg1);
+            if (filesToBeDownloaded != null && !filesToBeDownloaded.isEmpty()) {
+                mService.downloadFiles(filesToBeDownloaded);
+            }
+
+            if (filesToBeUploaded != null && !filesToBeUploaded.isEmpty()) {
+                mService.uploadFiles(filesToBeUploaded);
+            }
         }
     }
 }
