@@ -22,6 +22,7 @@ import java.io.FilterOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.net.URLEncoder;
 
 public class UploadOperation extends RemoteOperation {
     private final String LOG_TAG = UploadOperation.class.getSimpleName();
@@ -41,13 +42,14 @@ public class UploadOperation extends RemoteOperation {
 
     public int postFile() throws Exception {
         HttpClient client = new DefaultHttpClient();
-        HttpPost post = new HttpPost(getUri() + "/?regId=" + this.regId);
+        HttpPost post = new HttpPost(getUri());
         MultipartEntityBuilder builder = MultipartEntityBuilder.create();
         builder.setMode(HttpMultipartMode.BROWSER_COMPATIBLE);
 
         FileBody fb = new FileBody(file);
 
         post.setHeader("Authorization", getApiKey());
+        post.setHeader("Registration", this.regId);
         builder.addPart("file", fb);
         builder.addTextBody("path", fileUpload.path);
         builder.addTextBody("size", Long.toString(fileUpload.size));

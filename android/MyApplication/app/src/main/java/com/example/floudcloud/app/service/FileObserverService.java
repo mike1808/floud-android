@@ -9,20 +9,22 @@ import android.os.Binder;
 import android.os.IBinder;
 import android.util.Log;
 
+import com.example.floudcloud.app.model.File;
 import com.example.floudcloud.app.model.FileUpload;
 import com.example.floudcloud.app.utility.FileUtils;
 import com.example.floudcloud.app.utility.RecursiveFileObserver;
+
+import java.util.ArrayList;
+import java.util.List;
 
 public class FileObserverService extends Service {
     public final static String EXTRA_PATH = "PATH";
     public final static String EXTRA_API_KEY = "API_KEY";
     public final static String EXTRA_REG_ID = "REG_ID";
 
-    public final static String CHANGE_WATCHER_STATUS = "CHANGE_WATCHER_STATUS";
-    public static final String EXTRA_OPERATION = "EXTRA_OPERATION";
-
-    public static final String OPERATION_STOP = "OPERATION_STOP";
-    public static final String OPERATION_START = "OPERATION_START";
+    public final static String IGNORE_FILE = "IGNORE_FILE";
+    public static final String EXTRA_ADD_IGNORE = "EXTRA_ADD_IGNORE";
+    public static final String EXTRA_REMOVE_IGNORE = "EXTRA_REMOVE_IGNORE";
 
     private final String LOG_TAG = FileObserverService.class.getSimpleName();
     private LocalFileObserver mFileObserver;
@@ -30,12 +32,14 @@ public class FileObserverService extends Service {
     private String mRegId;
     private boolean mWatching = false;
 
+    private ArrayList<String> ignoredFiles;
+
     private IBinder mBinder = new LocalBinder();
 
     private String lastMovedFrom;
     private boolean waitForMove = false;
 
-    private WatcherManager watcherManager;
+    private IgnoreFilesReceiver ignoreFilesReceiver;
 
     public class LocalBinder extends Binder {
         FileObserverService getService() {
@@ -64,11 +68,14 @@ public class FileObserverService extends Service {
         mApiKey = intent.getStringExtra(EXTRA_API_KEY);
         mRegId = intent.getStringExtra(EXTRA_REG_ID);
 
-        mFileObserver = new LocalFileObserver(path, LocalFileObserver.CHANGES_ONLY);
+        ignoredFiles = new ArrayList<String>();
 
-        if (watcherManager == null) watcherManager = new WatcherManager();
-        IntentFilter intentFilter = new IntentFilter(CHANGE_WATCHER_STATUS);
-        registerReceiver(watcherManager, intentFilter);
+        mFileObserver = new LocalFileObserver(path, LocalFileObserver.CHANGES_ONLY);
+        startWatcher();
+
+        if (ignoreFilesReceiver == null) ignoreFilesReceiver = new IgnoreFilesReceiver();
+        IntentFilter intentFilter = new IntentFilter(IGNORE_FILE);
+        registerReceiver(ignoreFilesReceiver, intentFilter);
 
         return mBinder;
     }
@@ -76,7 +83,7 @@ public class FileObserverService extends Service {
     @Override
     public boolean onUnbind(Intent intent) {
         stopWatcher();
-        if (watcherManager != null) unregisterReceiver(watcherManager);
+        if (ignoreFilesReceiver != null) unregisterReceiver(ignoreFilesReceiver);
         return true;
     }
 
@@ -86,7 +93,7 @@ public class FileObserverService extends Service {
     }
 
     public void stopWatcher() {
-        mFileObserver.startWatching();
+        mFileObserver.stopWatching();
         mWatching = false;
     }
 
@@ -94,16 +101,28 @@ public class FileObserverService extends Service {
         return mWatching;
     }
 
-    private class WatcherManager extends BroadcastReceiver {
+    public void addIgnored(String filePath) {
+        ignoredFiles.add(FileUtils.resolvePath(filePath));
+
+    }
+
+    public void removeIgnored(String filePath) {
+        ignoredFiles.remove(FileUtils.resolvePath(filePath));
+    }
+
+    private class IgnoreFilesReceiver extends BroadcastReceiver {
         @Override
         public void onReceive(Context context, Intent intent) {
-            if (intent.getAction().equals(FileObserverService.CHANGE_WATCHER_STATUS)) {
-                String op = intent.getStringExtra(EXTRA_OPERATION);
+            if (intent.getAction().equals(FileObserverService.IGNORE_FILE)) {
+                String ignored = intent.getStringExtra(EXTRA_ADD_IGNORE);
+                String unignored = intent.getStringExtra(EXTRA_REMOVE_IGNORE);
 
-                if (op.equals(OPERATION_START)) {
-                    startWatcher();
-                } else if (op.equals(OPERATION_STOP)) {
-                    stopWatcher();
+                if (ignored != null) {
+                    addIgnored(ignored);
+                }
+
+                if (unignored != null) {
+                    removeIgnored(unignored);
                 }
             }
         }
@@ -120,6 +139,8 @@ public class FileObserverService extends Service {
 
         @Override
         public void onEvent(int event, String path) {
+            if (ignoredFiles.contains(path)) return;
+
             // The file was moved from but we didn't got MOVED_TO event, so delete this file
             if (waitForMove && (RecursiveFileObserver.MOVED_TO & event) == 0) {
                 doDelete(path);
@@ -155,6 +176,8 @@ public class FileObserverService extends Service {
         }
 
         private void doMove(String path) {
+            addIgnored(path);
+
             Intent moveIntent = new Intent(FileObserverService.this, CloudOperationsService.class);
             moveIntent.putExtra(CloudOperationsService.EXTRA_OPERATION, CloudOperationsService.OPERATION_MOVE);
             moveIntent.putExtra(CloudOperationsService.EXTRA_API_KEY, mApiKey);
@@ -186,6 +209,8 @@ public class FileObserverService extends Service {
         }
 
         private void doDelete(String path) {
+            addIgnored(path);
+
             Intent delete = new Intent(FileObserverService.this, CloudOperationsService.class);
             delete.putExtra(CloudOperationsService.EXTRA_OPERATION, CloudOperationsService.OPERATION_DELETE);
             delete.putExtra(CloudOperationsService.EXTRA_API_KEY, mApiKey);

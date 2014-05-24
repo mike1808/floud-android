@@ -31,6 +31,14 @@ public class File {
                 this.deleted == file.isDeleted();
     }
 
+    public boolean isSame(File file) {
+        if (file == null) return false;
+        if (file == this) return true;
+
+        return this.path.equals(file.getPath()) &&
+                this.hash.equals(file.getHash());
+    }
+
     public String getHash() {
         return hash;
     }

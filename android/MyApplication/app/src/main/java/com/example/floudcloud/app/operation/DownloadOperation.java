@@ -8,6 +8,7 @@ import com.example.floudcloud.app.utility.FileUtils;
 import com.example.floudcloud.app.utility.ProgressListener;
 
 import java.io.BufferedInputStream;
+import java.io.EOFException;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -15,14 +16,18 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.net.URLEncoder;
 
 public class DownloadOperation extends RemoteOperation {
     private final String LOG_TAG = DownloadOperation.class.getSimpleName();
     private static final int BUFFER_SIZE = 16 * 1024 * 1024; // 16 KiB
     private File saveFile;
 
-    public DownloadOperation(String path, String apiKey, String storagePath) {
-        super(apiKey, FloudService.FILE_URL + "/file?path=" + path, path);
+    public DownloadOperation(String path, String apiKey, String storagePath) throws Exception {
+        super(apiKey, FloudService.FILE_URL + "/file", path);
+        if (storagePath == null || path == null || apiKey == null) {
+            throw new Exception("Arguments can't be null");
+        }
 
         this.saveFile = new File(storagePath, path);
     }
@@ -34,7 +39,8 @@ public class DownloadOperation extends RemoteOperation {
         OutputStream output = null;
         HttpURLConnection connection = null;
         try {
-            URL url = new URL(getUri());
+
+            URL url = new URL(getUri() + "?path=" + URLEncoder.encode(getPath(), "UTF-8"));
             connection = (HttpURLConnection) url.openConnection();
             connection.setRequestMethod("GET");
             connection.setRequestProperty("Authorization", getApiKey());
@@ -64,7 +70,7 @@ public class DownloadOperation extends RemoteOperation {
         } catch (Exception e) {
             Log.e(LOG_TAG, "An exception occurred when downloading " + saveFile.getAbsolutePath());
             Log.e(LOG_TAG, "Exception " + e.getMessage());
-            Log.e(LOG_TAG, "Stack trace " + e.getStackTrace());
+            e.printStackTrace();
             return 0;
         } finally {
             try {

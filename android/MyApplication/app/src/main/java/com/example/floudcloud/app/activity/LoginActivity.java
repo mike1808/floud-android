@@ -160,6 +160,13 @@ public class LoginActivity extends BaseActivity {
 
         if (regid.isEmpty()) {
             registerInBackground();
+        } else {
+            progressDialog.dismiss();
+
+            Intent statusIntent = new Intent(LoginActivity.this, StatusActivity.class);
+            statusIntent.putExtra(MainService.EXTRA_API_KEY, user.token);
+            statusIntent.putExtra(MainService.EXTRA_REG_ID, regid);
+            startActivity(statusIntent);
         }
 
 
@@ -237,7 +244,7 @@ public class LoginActivity extends BaseActivity {
 
     private boolean sendRegistrationIdToBackend() {
         try {
-            getFloudService().regGcm(apiKey, new RegId(regid));
+            getFloudService().regGcm(apiKey, regid);
         } catch (RetrofitError cause) {
             Log.e(LOG_TAG, "Could not send reg it to server");
 
@@ -287,6 +294,7 @@ public class LoginActivity extends BaseActivity {
 
             if (error != null) {
                 Toast.makeText(LoginActivity.this, error, Toast.LENGTH_LONG).show();
+                progressDialog.dismiss();
             } else {
                 loginUser(user);
             }

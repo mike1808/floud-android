@@ -142,7 +142,7 @@ public abstract class FileUtils {
             return true;
         }
 
-        return dir.mkdir();
+        return dir.mkdirs();
     }
 
     public static boolean deleteFiles(ArrayList<String> files) {
@@ -151,7 +151,7 @@ public abstract class FileUtils {
         boolean success = true;
 
         for (String filePath : files) {
-            File file = new File(filePath);
+            File file = new File(mFileBase, filePath);
             if (file.isFile()) {
                 success = success && file.delete();
             }

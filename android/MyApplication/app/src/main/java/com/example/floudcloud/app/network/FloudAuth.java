@@ -24,8 +24,8 @@ public interface FloudAuth {
     User getCurrentUser(@Header("Authorization") String apiKey);
 
     @POST("/gcm")
-    String regGcm(@Header("Authorization") String apiKey, @Body RegId regId);
+    String regGcm(@Header("Authorization") String apiKey, @Header("Registration") String regId);
 
     @DELETE("/gcm")
-    String unregGcm(@Header("Authorization") String apiKey, @Body RegId regId);
+    String unregGcm(@Header("Authorization") String apiKey, @Header("Registration") String regId);
 }

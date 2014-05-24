@@ -45,21 +45,6 @@ public class StatusActivity extends BaseActivity {
 
         }
     };
-
-    private View.OnClickListener onObsServiceToggleButtonClickListener = new View.OnClickListener() {
-        @Override
-        public void onClick(View v) {
-            String path = SharedPrefs.getItem("", Constants.PREF_PATH);
-
-            if (path.isEmpty()) {
-                Toast.makeText(StatusActivity.this, "Specify path of the directory in settings", Toast.LENGTH_LONG).show();
-            } else {
-                startObs(path);
-            }
-
-        }
-    };
-
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -67,11 +52,9 @@ public class StatusActivity extends BaseActivity {
 
         Button settingsButton = (Button) findViewById(R.id.settingsButton);
         Button serviceToggleButton = (Button) findViewById(R.id.serviceToggleButton);
-        Button obsServiceToggleButton = (Button) findViewById(R.id.obsServiceToggleButton);
 
         settingsButton.setOnClickListener(onSettingsButtonClickListener);
         serviceToggleButton.setOnClickListener(onServiceToggleButtonClickListener);
-        obsServiceToggleButton.setOnClickListener(onObsServiceToggleButtonClickListener);
 
         String path = SharedPrefs.getItem(null, SharedPrefs.PREF_PATH);
         FileUtils.setFilePathBase(Environment.getExternalStorageDirectory().getAbsolutePath() + path);
@@ -118,19 +101,8 @@ public class StatusActivity extends BaseActivity {
     }
 
 
-    private void startObs(String path) {
-        Intent intent = new Intent(this, MainService.class);
-        intent.putExtra(MainService.EXTRA_PATH, path);
-        intent.putExtra(MainService.EXTRA_API_KEY, apiKey);
-        intent.putExtra(MainService.EXTRA_REG_ID, regid);
-
-        // FIXME :(
-        intent.putExtra(MainService.EXTRA_MEGA_KASTIL, 1);
-        startService(intent);
-    }
-
-
     private void startMonitoring(String path) {
+        FileUtils.setFilePathBase(Environment.getExternalStorageDirectory().getAbsolutePath() + path);
         Intent intent = new Intent(this, MainService.class);
         intent.putExtra(MainService.EXTRA_PATH, path);
         intent.putExtra(MainService.EXTRA_API_KEY, apiKey);

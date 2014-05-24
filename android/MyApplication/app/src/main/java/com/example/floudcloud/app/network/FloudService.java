@@ -18,6 +18,7 @@ import retrofit.converter.GsonConverter;
 
 public class FloudService {
     private final static String API_URL = "http://floud-cloud.no-ip.org/api/v1.0";
+    //private final static String API_URL = "http://192.168.1.125:3000/api/v1.0";
     private final static String AUTH_URI = "/users";
     private final static String FILE_URI = "/files";
 
@@ -48,7 +49,7 @@ public class FloudService {
             @Override
             public void intercept(RequestInterceptor.RequestFacade request) {
                 request.addHeader("Authorization", getApiKey());
-                request.addQueryParam("regId", regId);
+                request.addHeader("Registration", regId);
             }
         };
 

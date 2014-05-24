@@ -9,42 +9,14 @@
     tools:context="com.example.floudcloud.app.activity.StatusActivity">
 
 
-    <!--<TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:textAppearance="?android:attr/textAppearanceLarge"
-        android:text="@string/service_status"
-        android:id="@+id/textView"
-        android:layout_gravity="left" />
-
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:textAppearance="?android:attr/textAppearanceLarge"
-        android:id="@+id/serviceStatusTextView"
-        android:layout_gravity="right"
-        android:text="@string/stopped"
-        android:layout_alignParentTop="true"
-        android:layout_alignParentRight="true"
-        android:layout_alignParentEnd="true" />-->
-
     <Button
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="@string/start"
         android:id="@+id/serviceToggleButton"
         android:layout_gravity="center_horizontal"
-        android:layout_below="@+id/textView"
         android:layout_centerHorizontal="true" />
 
-    <Button
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="@string/startObs"
-        android:id="@+id/obsServiceToggleButton"
-        android:layout_gravity="center_horizontal"
-        android:layout_below="@+id/serviceToggleButton"
-        android:layout_centerHorizontal="true" />
 
     <Button
         android:layout_width="wrap_content"
@@ -52,7 +24,7 @@
         android:text="@string/settings"
         android:id="@+id/settingsButton"
         android:layout_gravity="center_horizontal"
-        android:layout_below="@+id/obsServiceToggleButton"
+        android:layout_below="@+id/serviceToggleButton"
         android:layout_centerHorizontal="true" />
 
 

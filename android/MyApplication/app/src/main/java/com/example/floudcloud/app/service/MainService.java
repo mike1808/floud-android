@@ -55,8 +55,6 @@ public class MainService extends Service {
         @Override
         public void onReceive(Context context, Intent intent) {
             if (intent.getAction().equals(RUN_DIGEST)) {
-                mFileObserverService.startWatcher();
-
                 Message msg = mServiceHandler.obtainMessage();
                 msg.obj = mPath;
                 mServiceHandler.sendMessage(msg);
@@ -217,25 +215,20 @@ public class MainService extends Service {
     }
 
     private ArrayList<String> getFileToBeDeleted(com.example.floudcloud.app.model.File.List cloudFiles, ArrayList<com.example.floudcloud.app.model.File> localFiles) {
-        if (cloudFiles == null) {
-            return null;
-        }
-
-        ArrayList<com.example.floudcloud.app.model.File> filesDiff = (com.example.floudcloud.app.model.File.List) cloudFiles.clone();
-
-        if (localFiles != null) {
-            filesDiff.removeAll(localFiles);
-        }
-
-        if (filesDiff == null) {
+        if (localFiles == null && cloudFiles == null) {
             return null;
         }
 
         ArrayList<String> fileToBeDeleted = new ArrayList<String>();
 
-        for (com.example.floudcloud.app.model.File file : filesDiff) {
-            if (file.isDeleted()) {
-                fileToBeDeleted.add(file.getPath());
+
+        for (com.example.floudcloud.app.model.File cloudFile : cloudFiles) {
+            if (!cloudFile.isDeleted()) continue;
+            for (com.example.floudcloud.app.model.File localFile : localFiles) {
+                if (cloudFile.isSame(localFile)) {
+                    fileToBeDeleted.add(localFile.getPath());
+                    break;
+                }
             }
         }
 
@@ -243,24 +236,24 @@ public class MainService extends Service {
     }
 
     private ArrayList<FileUpload> getFilesToBeUploaded(com.example.floudcloud.app.model.File.List cloudFiles, ArrayList<com.example.floudcloud.app.model.File> localFiles) {
-        if (localFiles == null) {
-            return null;
-        }
-
-        ArrayList<com.example.floudcloud.app.model.File> filesDiff = (ArrayList<com.example.floudcloud.app.model.File>) localFiles.clone();
-
-        if (cloudFiles != null) {
-            filesDiff.removeAll(cloudFiles);
-        }
-
-        if (filesDiff == null) {
+        if (localFiles == null && cloudFiles == null) {
             return null;
         }
 
         ArrayList<FileUpload> filesToBeUploaded = new ArrayList<FileUpload>();
 
-        for (com.example.floudcloud.app.model.File file : filesDiff) {
-            filesToBeUploaded.add(new FileUpload(file.getPath(), file.getSize(), file.getHash(), mRegId));
+        for (com.example.floudcloud.app.model.File localFile : localFiles) {
+            boolean inCloud = false;
+            for (com.example.floudcloud.app.model.File cloudFile : cloudFiles) {
+                if (localFile.isSame(cloudFile)) {
+                    inCloud = true;
+                    break;
+                }
+            }
+
+            if (!inCloud) {
+                filesToBeUploaded.add(new FileUpload(localFile.getPath(), localFile.getSize(), localFile.getHash(), mRegId));
+            }
         }
 
         return filesToBeUploaded;
@@ -296,6 +289,12 @@ public class MainService extends Service {
         }
     }
 
+    private void addIgnoredFiles(ArrayList<String> files) {
+        for(String file : files) {
+            mFileObserverService.addIgnored(file);
+        }
+    }
+
 
     private static class ServiceHandler extends Handler {
         private MainService mService;
@@ -312,7 +311,7 @@ public class MainService extends Service {
             if (path != null) {
                 digest(path);
 
-                mService.mFileObserverService.startWatcher();
+                //mService.mFileObserverService.startWatcher();
             }
         }
 
@@ -325,8 +324,12 @@ public class MainService extends Service {
             ArrayList<String> fileToBeDeleted = mService.getFileToBeDeleted(cloudFiles, localeFiles);
             ArrayList<FileUpload> filesToBeUploaded = mService.getFilesToBeUploaded(mService.fetchFiles(false), localeFiles);
 
+            ArrayList<String> ignoredFiles = (ArrayList<String>) filesToBeDownloaded.clone();
+            ignoredFiles.addAll(fileToBeDeleted);
+            mService.addIgnoredFiles(ignoredFiles);
+
             if (fileToBeDeleted != null && !fileToBeDeleted.isEmpty()) {
-                mService.deleteLocaleFiles(filesToBeDownloaded);
+                mService.deleteLocaleFiles(fileToBeDeleted);
             }
 
             if (filesToBeDownloaded != null && !filesToBeDownloaded.isEmpty()) {
@@ -336,6 +339,7 @@ public class MainService extends Service {
             if (filesToBeUploaded != null && !filesToBeUploaded.isEmpty()) {
                 mService.uploadFiles(filesToBeUploaded);
             }
+
         }
     }
 }

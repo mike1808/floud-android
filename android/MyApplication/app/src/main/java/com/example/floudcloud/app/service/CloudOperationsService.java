@@ -88,7 +88,11 @@ public class CloudOperationsService extends Service {
 
         switch (operation) {
             case OPERATION_DOWNLOAD:
-                mOperations.add(new DownloadOperation(path, apiKey, FileUtils.getFileBase()));
+                try {
+                    mOperations.add(new DownloadOperation(path, apiKey, FileUtils.getFileBase()));
+                } catch (Exception e) {
+                    Log.e(LOG_TAG, "DownloadOperation " + e.getMessage());
+                }
                 break;
             case OPERATION_UPLOAD:
                 mOperations.add(new UploadOperation(fileUpload, apiKey, FileUtils.getFileBase(), regId));
@@ -141,6 +145,8 @@ public class CloudOperationsService extends Service {
     }
 
     private void notifyDownloadResult(String path, int result) {
+        removeIgnoredFile(path);
+
         mNotificationManager.cancel(R.string.download);
         mNotificationBuilder
                 .setProgress(0, 0, false)
@@ -228,27 +234,18 @@ public class CloudOperationsService extends Service {
 
         @Override
         public void handleMessage(Message msg) {
-            mService.stopObserver();
-
             mService.nextOperation();
-
-            mService.startObserver();
 
             mService.stopSelf(msg.arg1);
         }
     }
 
-    private void startObserver() {
-        Intent observer = new Intent(FileObserverService.CHANGE_WATCHER_STATUS);
-        observer.putExtra(FileObserverService.EXTRA_OPERATION, FileObserverService.OPERATION_START);
+    private void removeIgnoredFile(String path) {
+        Intent observer = new Intent(FileObserverService.IGNORE_FILE);
+        observer.putExtra(FileObserverService.EXTRA_REMOVE_IGNORE, path);
         sendBroadcast(observer);
     }
 
-    private void stopObserver() {
-        Intent observer = new Intent(FileObserverService.CHANGE_WATCHER_STATUS);
-        observer.putExtra(FileObserverService.EXTRA_OPERATION, FileObserverService.OPERATION_STOP);
-        sendBroadcast(observer);
-    }
 
     private void nextOperation() {
         RemoteOperation operation = null;
@@ -284,6 +281,8 @@ public class CloudOperationsService extends Service {
             notifyMoveFailed(path, 0);
         }
 
+        removeIgnoredFile(path);
+
         return true;
     }
 
@@ -297,6 +296,8 @@ public class CloudOperationsService extends Service {
             notifyDeleteFailed(path, 0);
         }
 
+        removeIgnoredFile(path);
+
         return true;
     }
 
@@ -305,7 +306,6 @@ public class CloudOperationsService extends Service {
         Log.d(LOG_TAG, "Download for " + path + " has started");
 
         notifyDownload(path);
-
 
         int statusCode = operation.execute(new ProgressListener() {
             @Override

@@ -7,8 +7,8 @@
         <option name="externalProjectPath" value="$PROJECT_DIR$" />
         <option name="modules">
           <set>
-            <option value="D:\projects\fload\android\MyApplication" />
-            <option value="D:\projects\fload\android\MyApplication\app" />
+            <option value="D:\projects\floud\floud-android\android\MyApplication" />
+            <option value="D:\projects\floud\floud-android\android\MyApplication\app" />
           </set>
         </option>
       </GradleProjectSettings>
